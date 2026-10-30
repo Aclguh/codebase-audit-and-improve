@@ -9,7 +9,7 @@
 
 ---
 
-**`codebase-audit-and-improve`** 是一套专为 Google Antigravity 及现代 AI 编程智能体打造的高标准工作流 Skill（注册命令为 `/improve`）。它将高层级架构审计与原子化工程落地紧密结合，通过结构化的 `IMPROVEMENTS.md` 实现端到端可追溯的重构治理。
+**`codebase-audit-and-improve`** 是一套专为 Google Antigravity 及现代 AI 编程智能体打造的高标准工作流 Skill（注册命令为 `/improve` 与 `/improve-all`）。它将高层级架构审计与原子化工程落地紧密结合，通过结构化的 `IMPROVEMENTS.md` 实现端到端可追溯的重构治理。
 
 ## 核心特性
 
@@ -61,31 +61,41 @@ chmod +x install.sh && ./install.sh
 
 ## 使用方法
 
-### 1. 自动生成改进建议文档
+### 方式一：一键全流程自主交付 (`/improve-all`)
 
-在 Antigravity 对话框中直接输入斜杠命令：
+只需输入一条命令，自动完成全套端到端流程：
 
+```text
+/improve-all
+```
+
+智能体将全自动依次执行：
+1. 技术栈基线探测与 `.gitignore` 校验。
+2. 六大维度深度架构体检。
+3. 生成结构化 `IMPROVEMENTS.md` 任务清单。
+4. 逐项原子化实现、静态检查（0 警告）与全量测试验证（100% 通过），并生成独立 Git Commit。
+5. 清理临时文档、自动 Push 远程仓库，并实时监听 GitHub Actions CI 至绿灯通过。
+
+---
+
+### 方式二：分步交互式推进 (`/improve`)
+
+如需先审阅体检报告与方案再推进实现：
+
+#### 1. 自动生成改进建议文档
 ```text
 /improve
 ```
+智能体完成全面体检，并在项目根目录生成带打分与任务排期的 `IMPROVEMENTS.md`。
 
-智能体将自动执行：
-- 识别项目技术栈与工具链，确保 `.gitignore` 包含 `IMPROVEMENTS.md`。
-- 执行代码静态检查与测试套件获取基线数据。
-- 开展六大维度深度体检。
-- 在项目根目录生成结构化、带优先级的 `IMPROVEMENTS.md` 文档。
-
-*(也支持自然语言长提示词触发：`请评估当前项目的整体状况，从代码质量、架构设计、性能、可维护性、安全性和测试覆盖等方面识别可改进之处...`)*
-
-### 2. 自主按序落地
-
-如需让智能体自主按序全部实现并逐项提交：
+#### 2. 自主按序落地
+确认清单后，输入：
 ```text
 /goal 全部实现
 ```
+*(亦可指定单项任务推进)*
 
-### 3. CI 验证与推送
-
+#### 3. CI 验证与推送
 当所有任务完成后：
 ```text
 push并检测GitHub ci通过情况
@@ -95,12 +105,12 @@ push并检测GitHub ci通过情况
 
 ```
 codebase-audit-and-improve/
-├── SKILL.md                     # Antigravity 核心 Skill 定义与 YAML 前言元数据 (/improve)
+├── SKILL.md                     # Antigravity 核心 Skill 定义与 YAML 前言元数据 (/improve, /improve-all)
 ├── README.md                    # 英文项目介绍与使用手册
 ├── README_zh.md                 # 中文项目介绍与使用手册
 ├── LICENSE                      # MIT 开源许可证
-├── install.ps1                  # Windows 一键安装脚本
-├── install.sh                   # Linux/macOS 一键安装脚本
+├── install.ps1                  # Windows 一键安装脚本 (同时安装 improve 与 improve-all)
+├── install.sh                   # Linux/macOS 一键安装脚本 (同时安装 improve 与 improve-all)
 ├── references/                  # 深度参考文档（按需递进加载，节约 Token）
 │   ├── audit-dimensions.md      # 六大评估维度详细诊断清单与评分细则
 │   ├── improvements-template.md # 通用、脱敏的 IMPROVEMENTS.md 标准模板
@@ -109,6 +119,9 @@ codebase-audit-and-improve/
 ├── scripts/                     # 辅助工具脚本
 │   ├── check_health.py          # 跨平台工程技术栈探测与 .gitignore 检查
 │   └── track_progress.py        # IMPROVEMENTS.md 解析器与任务完成度统计
+├── skills/                      # 打包的 Skill 定义目录
+│   ├── improve/                 # /improve 命令定义
+│   └── improve-all/             # /improve-all 命令定义
 └── examples/
     └── sample-improvements.md   # 脱敏的生产级 IMPROVEMENTS.md 示范样例
 ```

@@ -9,7 +9,7 @@
 
 ---
 
-An enterprise-grade, desensitized **Antigravity AI Agent Skill** (`improve`) designed for automated project health assessment, structured roadmapping via temporary `IMPROVEMENTS.md` documents, and disciplined, test-verified atomic implementation loops.
+An enterprise-grade, desensitized **Antigravity AI Agent Skill** (`/improve` and `/improve-all`) designed for automated project health assessment, structured roadmapping via temporary `IMPROVEMENTS.md` documents, and disciplined, test-verified atomic implementation loops.
 
 ## Key Features
 
@@ -27,7 +27,7 @@ An enterprise-grade, desensitized **Antigravity AI Agent Skill** (`improve`) des
   - One improvement per independent Git commit following Conventional Commits.
   - Pre-commit gate: 0 linter errors, 0 linter warnings, and 100% test pass rate.
 - **Goal-Driven Autonomy**:
-  - Seamlessly integrates with `/goal` for overnight autonomous refactoring, terminating only when all tasks pass verification.
+  - Pairs with `/goal` or `/improve-all` for overnight autonomous refactoring, terminating only when all tasks pass verification.
 - **CI/CD Closure**:
   - Automatically cleans up the temporary roadmap upon full completion, pushes to remote repository, and monitors GitHub Actions CI runs via GitHub CLI (`gh`).
 
@@ -61,32 +61,41 @@ chmod +x install.sh && ./install.sh
 
 ## How to Use
 
-### 1. Generate Improvement Roadmap
+### Option 1: Full-Loop Autonomous Pipeline (`/improve-all`)
 
-In your Antigravity conversation, simply type the slash command:
+To run the complete audit, atomic implementation, test verification, git commits, cleanup, remote push, and CI monitoring in a single autonomous pass:
 
+```text
+/improve-all
+```
+
+The agent will execute end-to-end:
+1. Baseline discovery & `.gitignore` verification.
+2. Six-dimensional health audit.
+3. Generate structured `IMPROVEMENTS.md`.
+4. Atomically implement each task in sequence (0 lint warnings, 100% tests pass, Conventional Commits).
+5. Clean up `IMPROVEMENTS.md`, push to remote repository, and monitor GitHub Actions CI until green.
+
+---
+
+### Option 2: Step-by-Step Interactive Workflow (`/improve`)
+
+If you want to review findings before implementing:
+
+#### 1. Generate Improvement Roadmap
 ```text
 /improve
 ```
+The agent audits the codebase and produces `IMPROVEMENTS.md` with quantitative scorecards and prioritized task lists.
 
-The agent will automatically:
-- Inspect project tech stack, tooling, and ensure `IMPROVEMENTS.md` is added to `.gitignore`.
-- Run baseline linters and test suites.
-- Perform a thorough 6-dimensional health audit.
-- Output the quantitative scorecards and prioritized task backlog (`OPT-01`, `OPT-02`...) in `IMPROVEMENTS.md`.
-
-*(Optional natural language prompt is also supported: `Please evaluate the overall health of the current project across code quality, architecture design, performance, maintainability, security, and test coverage...`)*
-
-### 2. Autonomous Implementation
-
-To autonomously implement all items in sequence:
+#### 2. Implement Tasks
+To autonomously implement all items:
 ```text
 /goal implement all
 ```
 *(or `/goal 全部实现`)*
 
-### 3. Verification & Push
-
+#### 3. Verification & Remote Push
 When all tasks are complete:
 ```text
 push and verify GitHub CI status
@@ -96,12 +105,12 @@ push and verify GitHub CI status
 
 ```
 codebase-audit-and-improve/
-├── SKILL.md                     # Antigravity skill definition and metadata (/improve)
+├── SKILL.md                     # Antigravity skill definition (/improve, /improve-all)
 ├── README.md                    # English documentation
 ├── README_zh.md                 # Chinese documentation
 ├── LICENSE                      # MIT License
-├── install.ps1                  # Windows installation script
-├── install.sh                   # Linux/macOS installation script
+├── install.ps1                  # Windows installation script (improve & improve-all)
+├── install.sh                   # Linux/macOS installation script (improve & improve-all)
 ├── references/                  # Reference documents (loaded on demand)
 │   ├── audit-dimensions.md      # Detailed diagnostic checklists for 6 dimensions
 │   ├── improvements-template.md # Sanitized IMPROVEMENTS.md standard template
@@ -110,6 +119,9 @@ codebase-audit-and-improve/
 ├── scripts/                     # Helper utility scripts
 │   ├── check_health.py          # Tech stack detector and .gitignore validator
 │   └── track_progress.py        # IMPROVEMENTS.md parser and completion tracker
+├── skills/                      # Bundled skill definitions
+│   ├── improve/                 # /improve skill
+│   └── improve-all/             # /improve-all skill
 └── examples/
     └── sample-improvements.md   # Production-grade sample IMPROVEMENTS.md
 ```

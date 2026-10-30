@@ -5,7 +5,7 @@ description: >-
   performance, maintainability, security, and test coverage, generating a structured
   IMPROVEMENTS.md tracking document. Then autonomously or interactively implements
   recommendations in an atomic, test-verified, and git-tracked loop until completion.
-  Also triggered by the /improve slash command.
+  Also triggered by the /improve and /improve-all slash commands.
 ---
 
 # Codebase Audit and Improvement Workflow (`IMPROVEMENTS.md`)
@@ -14,13 +14,23 @@ This skill establishes a proven, enterprise-grade engineering workflow for asses
 
 ---
 
-## Slash Command Entrypoint (`/improve`)
+## Slash Command Entrypoints
+
+### 1. `/improve` (Audit & Planning)
 
 When invoked via the slash command `/improve` (or when asked to assess/audit the codebase):
 1. **Automated Baseline & Discovery**: Immediately execute **Phase 1** (tech stack detection and `.gitignore` verification).
 2. **Six-Dimensional Health Audit**: Execute **Phase 2** across architecture, code quality, performance, maintainability, security, and test coverage.
 3. **Generate Tracking Document**: Output the structured, prioritized `IMPROVEMENTS.md` at the project root (**Phase 3**).
-4. **Summary & Next Action**: Present the quantitative scorecards and top-priority checklist (`OPT-01`, `OPT-02`...) to the user, and inform them that they can run `/goal 全部实现` (or `/goal implement all`) to begin the atomic implementation loop (**Phase 4**).
+4. **Summary & Next Action**: Present the quantitative scorecards and top-priority checklist (`OPT-01`, `OPT-02`...) to the user, and inform them that they can run `/goal 全部实现` (or `/improve-all`) to begin the atomic implementation loop (**Phase 4**).
+
+### 2. `/improve-all` (Full End-to-End Pipeline)
+
+When invoked via the slash command `/improve-all` (or when asked to fully audit, implement, and verify all improvements):
+1. **Autonomous Execution**: Execute all 5 phases sequentially without pausing for manual intervention.
+2. **Phases 1-3**: Baseline discovery, 6-dimensional audit, and `IMPROVEMENTS.md` generation.
+3. **Phase 4**: Autonomous atomic implementation loop for every task (0 lint warnings, 100% tests pass, individual Conventional Commits).
+4. **Phase 5**: Final verification, delete `IMPROVEMENTS.md`, push to remote repository, monitor GitHub CI to green, and output `<!-- GOAL_COMPLETE -->`.
 
 ---
 
@@ -153,7 +163,7 @@ Output a structured markdown file named `IMPROVEMENTS.md` at the project root us
 
 ### Phase 4: Goal-Driven Atomic Implementation Loop
 
-When the user triggers implementation (e.g. `/goal 全部实现` or requesting specific tasks):
+When the user triggers implementation (e.g. `/goal 全部实现`, `/improve-all`, or requesting specific tasks):
 
 Follow the strict **Atomic Execution Loop** detailed in [references/execution-loop.md](./references/execution-loop.md):
 
@@ -187,13 +197,13 @@ For each task in IMPROVEMENTS.md:
    - Run [scripts/track_progress.py](./scripts/track_progress.py) to ensure all tasks are marked `[x]`.
    - Run the full project test suite and linter one final time.
 2. **Handle Document Lifecycle**:
-   - If the user prompt specified: *"当改进建议文档被全部完成时可以删除"* (can be deleted upon completion):
+   - If the user prompt specified: *"当改进建议文档被全部完成时可以删除"* (can be deleted upon completion) or running via `/improve-all`:
      - Delete `IMPROVEMENTS.md`.
      - Commit the deletion: `chore: 移除已全部落地的临时改进建议文档 IMPROVEMENTS.md`.
-   - If the user specified to keep the document or did not request deletion:
+   - If the user specified to keep the document:
      - Keep `IMPROVEMENTS.md` with all items marked completed.
 3. **Goal Termination Signal**:
-   - If running under `/goal`, include `<!-- GOAL_COMPLETE -->` in your final response once all items are verified.
+   - If running under `/goal` or `/improve-all`, include `<!-- GOAL_COMPLETE -->` in your final response once all items are verified.
 4. **Push & Monitor CI**:
    - Execute `git push origin <branch>`.
    - Inspect GitHub CI workflow status using [references/ci-monitoring.md](./references/ci-monitoring.md):
