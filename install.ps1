@@ -1,7 +1,7 @@
 # Multi-Agent Installer for improve and improve-all
-# Supports Antigravity, Claude Code, Cursor, and Continue.dev with slash command preview (/improve, /improve-all)
+# Supports Antigravity, Claude Code, Cursor, Continue.dev, DeepSeek Harness (dsh), and OpenAI Codex
 param (
-    [ValidateSet("Antigravity", "Claude", "Cursor", "Continue", "All")]
+    [ValidateSet("Antigravity", "Claude", "Cursor", "Continue", "DeepSeek", "Codex", "All")]
     [string]$Target = "All",
     [switch]$Workspace
 )
@@ -35,20 +35,18 @@ function Install-Antigravity() {
     foreach ($Name in @("improve", "improve-all")) {
         $Dest = Join-Path $BaseDir $Name
         Install-SkillFiles $Dest $Name
-        Write-Host "    ✓ Registered skill: $Dest" -ForegroundColor Green
+        Write-Host "    ✓ Registered Antigravity Skill: $Dest" -ForegroundColor Green
     }
 }
 
 function Install-Claude() {
     Write-Host "[+] Installing for Claude Code..." -ForegroundColor Cyan
-    # 1. Claude Skills
     $SkillBase = if ($Workspace) { Join-Path $CurrentDir ".claude\skills" } else { Join-Path $UserHome ".claude\skills" }
     foreach ($Name in @("improve", "improve-all")) {
         $Dest = Join-Path $SkillBase $Name
         Install-SkillFiles $Dest $Name
         Write-Host "    ✓ Registered Claude Skill: $Dest" -ForegroundColor Green
     }
-    # 2. Claude Commands (/ autocomplete preview)
     $CmdBase = if ($Workspace) { Join-Path $CurrentDir ".claude\commands" } else { Join-Path $UserHome ".claude\commands" }
     New-Item -ItemType Directory -Path $CmdBase -Force | Out-Null
     Copy-Item -Force (Join-Path $ScriptDir "integrations\claude\commands\improve.md") (Join-Path $CmdBase "improve.md")
@@ -79,7 +77,6 @@ function Install-Continue() {
             if (-not $ExistingJson.customCommands) {
                 $ExistingJson | Add-Member -MemberType NoteProperty -Name "customCommands" -Value @()
             }
-            # Remove existing improve / improve-all
             $Filtered = @($ExistingJson.customCommands | Where-Object { $_.name -ne "improve" -and $_.name -ne "improve-all" })
             $Filtered += $SourceCommands
             $ExistingJson.customCommands = $Filtered
@@ -95,6 +92,26 @@ function Install-Continue() {
     }
 }
 
+function Install-DeepSeek() {
+    Write-Host "[+] Installing for DeepSeek Harness (dsh)..." -ForegroundColor Cyan
+    $BaseDir = if ($Workspace) { Join-Path $CurrentDir ".agents\skills" } else { Join-Path $UserHome ".agents\skills" }
+    foreach ($Name in @("improve", "improve-all")) {
+        $Dest = Join-Path $BaseDir $Name
+        Install-SkillFiles $Dest $Name
+        Write-Host "    ✓ Registered DeepSeek Harness Skill: $Dest" -ForegroundColor Green
+    }
+}
+
+function Install-Codex() {
+    Write-Host "[+] Installing for OpenAI Codex..." -ForegroundColor Cyan
+    $BaseDir = if ($Workspace) { Join-Path $CurrentDir ".codex\skills" } else { Join-Path $UserHome ".codex\skills" }
+    foreach ($Name in @("improve", "improve-all")) {
+        $Dest = Join-Path $BaseDir $Name
+        Install-SkillFiles $Dest $Name
+        Write-Host "    ✓ Registered Codex Skill: $Dest" -ForegroundColor Green
+    }
+}
+
 # Execution
 Write-Host "=================================================" -ForegroundColor Yellow
 Write-Host "Codebase Audit & Improve: Multi-Agent Installer" -ForegroundColor Yellow
@@ -105,6 +122,8 @@ if ($Target -eq "All" -or $Target -eq "Antigravity") { Install-Antigravity }
 if ($Target -eq "All" -or $Target -eq "Claude")      { Install-Claude }
 if ($Target -eq "All" -or $Target -eq "Cursor")      { Install-Cursor }
 if ($Target -eq "All" -or $Target -eq "Continue")    { Install-Continue }
+if ($Target -eq "All" -or $Target -eq "DeepSeek")    { Install-DeepSeek }
+if ($Target -eq "All" -or $Target -eq "Codex")       { Install-Codex }
 
 Write-Host "`nAll selected slash commands and skills have been successfully installed!" -ForegroundColor Green
-Write-Host "You can now type '/' in Antigravity, Claude Code, Cursor, or Continue to preview and autocomplete /improve and /improve-all." -ForegroundColor Yellow
+Write-Host "Ready for Antigravity, Claude Code, Cursor, Continue, DeepSeek Harness, and Codex." -ForegroundColor Yellow

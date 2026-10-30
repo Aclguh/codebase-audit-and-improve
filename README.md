@@ -43,6 +43,8 @@ This project provides native **Slash Command Autocompletion (`/` preview)** acro
 - **Anthropic Claude Code**: Slash command dropdown in interactive CLI (`.claude/commands/` & `.claude/skills/`).
 - **Cursor IDE**: Slash command dropdown in Composer and Agent chat (`.cursor/commands/`).
 - **Continue.dev**: Autocomplete palette in VS Code / JetBrains (`customCommands` in `config.json`).
+- **DeepSeek Harness (dsh)**: Native `/` skill autocomplete popup in Web UI, TUI, and Desktop (`.agents/skills/`).
+- **OpenAI Codex**: Native skill integration (`.codex/skills/`) and command support.
 
 ### 1. Global Installation (All Agents)
 

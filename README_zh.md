@@ -43,6 +43,8 @@
 - **Anthropic Claude Code**：命令行交互下拉补全 (`.claude/commands/` 与 `.claude/skills/`)。
 - **Cursor IDE**：Composer / Agent 输入框原生下拉补全 (`.cursor/commands/`)。
 - **Continue.dev**：VS Code / JetBrains 输入框下拉菜单 (`customCommands` in `config.json`)。
+- **DeepSeek Harness (dsh)**：Web UI / TUI / Desktop 输入框 `/` 自动补全与卡片渲染 (`.agents/skills/`)。
+- **OpenAI Codex**：原生技能体系与命令支持 (`.codex/skills/`)。
 
 ### 1. 全局一键安装（全生态支持）
 

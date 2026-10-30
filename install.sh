@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Multi-Agent Installer for improve and improve-all
-# Supports Antigravity, Claude Code, Cursor, and Continue.dev with slash command preview (/improve, /improve-all)
+# Supports Antigravity, Claude Code, Cursor, Continue.dev, DeepSeek Harness (dsh), and OpenAI Codex
 set -e
 
 TARGET="${1:-all}"
@@ -10,7 +10,7 @@ for arg in "$@"; do
     case "$arg" in
         --workspace) WORKSPACE=true ;;
         --target=*) TARGET="${arg#*=}" ;;
-        antigravity|claude|cursor|continue|all) TARGET="$arg" ;;
+        antigravity|claude|cursor|continue|deepseek|codex|all) TARGET="$arg" ;;
     esac
 done
 
@@ -47,7 +47,7 @@ install_antigravity() {
     for name in "improve" "improve-all"; do
         local dest="${base_dir}/${name}"
         install_skill_files "${dest}" "${name}"
-        echo -e "\033[32m    ✓ Registered skill: ${dest}\033[0m"
+        echo -e "\033[32m    ✓ Registered Antigravity skill: ${dest}\033[0m"
     done
 }
 
@@ -105,6 +105,36 @@ install_continue() {
     fi
 }
 
+install_deepseek() {
+    echo -e "\033[36m[+] Installing for DeepSeek Harness (dsh)...\033[0m"
+    local base_dir
+    if [ "$WORKSPACE" = true ]; then
+        base_dir="${CURRENT_DIR}/.agents/skills"
+    else
+        base_dir="${USER_HOME}/.agents/skills"
+    fi
+    for name in "improve" "improve-all"; do
+        local dest="${base_dir}/${name}"
+        install_skill_files "${dest}" "${name}"
+        echo -e "\033[32m    ✓ Registered DeepSeek Harness Skill: ${dest}\033[0m"
+    done
+}
+
+install_codex() {
+    echo -e "\033[36m[+] Installing for OpenAI Codex...\033[0m"
+    local base_dir
+    if [ "$WORKSPACE" = true ]; then
+        base_dir="${CURRENT_DIR}/.codex/skills"
+    else
+        base_dir="${USER_HOME}/.codex/skills"
+    fi
+    for name in "improve" "improve-all"; do
+        local dest="${base_dir}/${name}"
+        install_skill_files "${dest}" "${name}"
+        echo -e "\033[32m    ✓ Registered Codex Skill: ${dest}\033[0m"
+    done
+}
+
 echo "================================================="
 echo "Codebase Audit & Improve: Multi-Agent Installer"
 echo "Target: ${TARGET} | Workspace: ${WORKSPACE}"
@@ -116,7 +146,9 @@ if [ "$TARGET_LOWER" == "all" ] || [ "$TARGET_LOWER" == "antigravity" ]; then in
 if [ "$TARGET_LOWER" == "all" ] || [ "$TARGET_LOWER" == "claude" ]; then install_claude; fi
 if [ "$TARGET_LOWER" == "all" ] || [ "$TARGET_LOWER" == "cursor" ]; then install_cursor; fi
 if [ "$TARGET_LOWER" == "all" ] || [ "$TARGET_LOWER" == "continue" ]; then install_continue; fi
+if [ "$TARGET_LOWER" == "all" ] || [ "$TARGET_LOWER" == "deepseek" ]; then install_deepseek; fi
+if [ "$TARGET_LOWER" == "all" ] || [ "$TARGET_LOWER" == "codex" ]; then install_codex; fi
 
 echo ""
 echo -e "\033[32mAll selected slash commands and skills have been successfully installed!\033[0m"
-echo "You can now type '/' in Antigravity, Claude Code, Cursor, or Continue to preview and autocomplete /improve and /improve-all."
+echo "Ready for Antigravity, Claude Code, Cursor, Continue, DeepSeek Harness, and Codex."
