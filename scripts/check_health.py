@@ -13,6 +13,18 @@ import shutil
 import glob
 from pathlib import Path
 
+# Ensure UTF-8 output encoding across all operating systems and Windows CI runners
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+if hasattr(sys.stderr, 'reconfigure'):
+    try:
+        sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 def detect_package_manager(cwd):
     """Detect Node.js package manager based on lockfiles."""
     if os.path.exists(os.path.join(cwd, "pnpm-lock.yaml")):

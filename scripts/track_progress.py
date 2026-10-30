@@ -10,6 +10,18 @@ import sys
 import re
 import json
 
+# Ensure UTF-8 output encoding across all operating systems and Windows CI runners
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+if hasattr(sys.stderr, 'reconfigure'):
+    try:
+        sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 def clean_cell(text):
     """Strip markdown bolding, italics, backticks and extra whitespace."""
     if not text:
