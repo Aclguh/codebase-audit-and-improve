@@ -13,6 +13,12 @@
 
 **`codebase-audit-and-improve`** 是一套通用的生产级 **AI 编程智能体审计与改进工作流 Skill**（注册命令为 `/improve` 与 `/improve-all`）。原生遵循开放的 **Agent Skills Specification** 规范，跨平台兼容 Claude Code、OpenAI Codex、Cursor、Google Antigravity、DeepSeek Harness、Continue.dev 等主流 AI 编程助手，将高层级架构审计与原子化工程落地紧密结合，通过结构化的 `IMPROVEMENTS.md` 实现端到端可追溯的代码治理与自主重构。
 
+## 工作原理图
+
+![codebase-audit-and-improve 工作原理](docs/codebase-audit-and-improve-zh.png)
+
+从多 Agent 安装分发、`SKILL.md` 五阶段工作流，到 `IMPROVEMENTS.md` 路线图与 PR / CI 交付闭环的端到端流程。
+
 ## 多智能体兼容性矩阵 (Multi-Agent Matrix)
 
 本项目遵循开放技能标准，为各大主流 AI 编程助手提供原生输入框 `/` 补全预览与技能调度支持：

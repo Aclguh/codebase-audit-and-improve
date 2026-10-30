@@ -13,6 +13,12 @@
 
 A universal, production-grade **AI Coding Agent Skill & Workflow** (`/improve` and `/improve-all`) built for automated codebase health audits, structured roadmapping via temporary `IMPROVEMENTS.md` documents, and disciplined, test-verified atomic implementation loops across modern AI programming assistants.
 
+## How It Works
+
+![codebase-audit-and-improve — How It Works](docs/codebase-audit-and-improve.png)
+
+End-to-end flow from multi-agent installation through the `SKILL.md` five-phase workflow, the `IMPROVEMENTS.md` roadmap, and the PR / CI delivery loop.
+
 ## Multi-Agent Compatibility Matrix
 
 This project complies with the **Agent Skills Specification** and provides native autocompletion (`/` preview) and command invocation across leading AI coding tools:
