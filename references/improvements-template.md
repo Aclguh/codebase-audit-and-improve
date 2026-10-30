@@ -8,7 +8,8 @@ Use this template to generate structured, actionable, and consistent `IMPROVEMEN
 # [Project Name] Architecture & Code Quality Assessment (IMPROVEMENTS.md)
 
 > **Document Nature**: Temporary project health audit and technical improvement tracking document (excluded in `.gitignore`).
-> This document coordinates step-by-step refactoring and quality hardening. Complete each task with an atomic Git commit. Once all tasks are implemented and verified, this document can be deleted or retained as a historical milestone.
+> This document coordinates step-by-step refactoring and quality hardening. Complete each task with an atomic Git commit.
+> Upon full completion, this document can be archived to `docs/audits/YYYY-MM-DD-codebase-improvements.md` (recommended) or deleted.
 
 ---
 
@@ -64,11 +65,11 @@ Use this template to generate structured, actionable, and consistent `IMPROVEMEN
 | **架构设计 (Architecture)** | 3.5 / 5.0 | 基础分层清晰，但存在上帝类（God Widget）过度集中逻辑。 |
 | **性能与响应度 (Performance)** | 3.0 / 5.0 | 输入更新触发全量 UI 刷新；存在主线程同步 I/O。 |
 | **安全性与防御 (Security)** | 3.0 / 5.0 | 文件路径校验存在绕过风险；命令执行缺乏参数隔离。 |
-| **代码质量 (Code Quality)** | 4.0 / 5.0 | 静态分析 0 警告，规范执行较好，但部分错误捕获过于宽泛。 |
+| **代码质量 (Code Quality)** | 4.0 / 5.0 | 静态分析规范执行良好，已记录基线警告用于增量零容忍门禁。 |
 | **可维护性 (Maintainability)** | 3.5 / 5.0 | 缺乏统一的分级日志体系；国际化未覆盖全部文案。 |
 | **测试覆盖 (Testing)** | 2.5 / 5.0 | 核心计算逻辑测试良好，但全仓代码覆盖率低于 50%。 |
 
-- **静态代码分析**：`0 errors`, `0 warnings`
+- **静态代码分析基线**：`0 errors`, `X baseline warnings` (门禁要求：新修改文件 0 告警，全仓告警数 <= X)
 - **单元测试通过率**：`100% Pass` (X / X tests)
 - **代码行覆盖率**：`XX.X%` (Hits: XXXX / Total: XXXX)
 
@@ -77,7 +78,7 @@ Use this template to generate structured, actionable, and consistent `IMPROVEMEN
 ## 二、全维度问题清单与根因分析
 
 ### 1. 架构设计 (Architecture Design)
-- **问题 A1 (上帝类过于庞大)**：`path/to/god_class.ext` 行数超 1500 行，承担了过多的生命周期与视图组装职责。
+- **问题 A1 (上帝类过于庞大)**：`path/to/god_class.ext` 行数超 800 行，承担了过多的生命周期与视图组装职责。
 - **问题 A2 (状态管理割裂)**：部分状态采用全局响应式管理，局部仍大量混合使用原生回调与手动刷新。
 
 ### 2. 性能与响应度 (Performance)

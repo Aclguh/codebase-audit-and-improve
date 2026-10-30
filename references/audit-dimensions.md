@@ -1,6 +1,19 @@
 # Six-Dimensional Project Health Audit Framework
 
-This reference outlines the criteria, diagnostic questions, and risk rating guidelines across the six core dimensions.
+This reference outlines the criteria, diagnostic questions, risk rating guidelines, and subagent delegation strategies across the six core dimensions.
+
+---
+
+## Subagent-Assisted Parallel Audit (Context Optimization)
+
+> [!TIP]
+> In large codebases (> 50 source files), conducting exhaustive file inspection in a single conversation context can quickly saturate token limits.
+> It is strongly recommended to invoke read-only subagents (e.g. `research` subagents) in parallel:
+> - **Subagent 1**: Architecture & Modularity (God classes, layer boundaries, Monorepo coupling).
+> - **Subagent 2**: Security & Sandbox Defense (Path traversal, command injection, Zip Slip).
+> - **Subagent 3**: Test & Baseline Diagnostics (Test runners, baseline warnings count, coverage blindspots).
+>
+> Subagents return concise summaries, allowing the parent agent to generate `IMPROVEMENTS.md` with minimal context overhead.
 
 ---
 
@@ -10,6 +23,7 @@ This reference outlines the criteria, diagnostic questions, and risk rating guid
 - **Separation of Concerns**: Domain logic, data access, presentation, and external infrastructure should have clear boundaries.
 - **God Class / God Component Detection**: Inspect source files for excessive length (> 800 lines) or overloaded responsibilities (e.g. handling state, rendering, I/O, networking, and dialogs in a single class).
 - **Coupling & Cohesion**: Look for circular module imports, excessive constructor parameter drilling (Prop Drilling), or bypassing architectural layers.
+- **Monorepo / Workspace Isolation**: In monorepos, verify that package boundaries are strictly respected and shared internal libraries do not import downstream application packages.
 - **State Management Consistency**: Verify that state management (e.g. Riverpod, Redux, Zustand, Vuex, Bloc) is adopted uniformly rather than mixed inconsistently with raw component state.
 
 ### Diagnostic Questions:
@@ -22,7 +36,7 @@ This reference outlines the criteria, diagnostic questions, and risk rating guid
 ## 2. Code Quality & Robustness (代码质量与稳健性)
 
 ### Audit Criteria:
-- **Static Analysis Compliance**: Execute project linters (`flutter analyze`, `npm run lint`, `cargo clippy`, `ruff check`, etc.). Target is 0 errors, 0 warnings.
+- **Static Analysis Compliance & Baseline Recording**: Execute project linters (`flutter analyze`, `npm run lint`, `cargo clippy`, `ruff check`, etc.). Record baseline warning count to enforce the **Incremental Zero-Tolerance** gate.
 - **Type Safety & Strict Nullness**: Ensure strict typing is enabled; avoid indiscriminate usage of `any`, `dynamic`, `Object?` type casting, or unchecked force-unwrapping.
 - **Error & Exception Handling**: Replace empty `catch {}` blocks with structured, typed domain exceptions and actionable error reporting.
 - **Resource Management**: Ensure files, streams, network controllers, timers, database connections, and subprocesses are properly closed/disposed in lifecycle hooks.
@@ -51,7 +65,7 @@ This reference outlines the criteria, diagnostic questions, and risk rating guid
 
 ### Audit Criteria:
 - **Internationalization (i18n)**: Check whether user-facing text is hardcoded or properly externalized into localization resource files (`arb`, `json`, `po`, etc.).
-- **Dependency Hygiene**: Audit dependencies for deprecated, discontinued, or abandoned packages.
+- **Dependency Hygiene**: Audit dependencies for deprecated, discontinued, or abandoned packages. Check lockfiles (`pnpm-lock.yaml`, `Cargo.lock`, `poetry.lock`) for consistency.
 - **Structured Logging**: Replace raw console logging (`print`, `console.log`) with structured, leveled loggers (`debug`, `info`, `warn`, `error`).
 - **Configuration & Environment**: Ensure API URLs, credentials, and feature flags are isolated in configuration files or environment variables.
 
@@ -82,7 +96,7 @@ This reference outlines the criteria, diagnostic questions, and risk rating guid
 - **Core Business Logic Coverage**: Pure functions, mathematical algorithms, diff utilities, parser logic, and state reducers must have comprehensive unit test coverage.
 - **Regression Tests**: Any past bugs or critical edge cases should have dedicated regression test cases.
 - **Mocking & Isolation**: Network calls and platform APIs should have deterministic mocks or in-memory fakes to ensure tests can run in headless CI environments without external services.
-- **Fast Execution**: Unit test suites should execute in under 60 seconds to ensure friction-free pre-commit developer validation.
+- **Tiered Test Friendliness**: Ensure targeted tests can be executed quickly (< 30s) during atomic refactoring loops.
 
 ### Diagnostic Questions:
 - What is the current line and branch test coverage percentage?
