@@ -38,13 +38,14 @@ An enterprise-grade, desensitized **Antigravity AI Agent Skill** (`/improve` and
 
 ## Quick Start & Multi-Agent Installation
 
-This project provides native **Slash Command Autocompletion (`/` preview)** across multiple AI Agent tools:
+This project provides native **Slash Command Autocompletion (`/` preview) & Skill Support** across multiple AI Agent tools:
 - **Google Antigravity**: Native skill autocompletion (`/improve`, `/improve-all`).
-- **Anthropic Claude Code**: Slash command dropdown in interactive CLI (`.claude/commands/` & `.claude/skills/`).
-- **Cursor IDE**: Slash command dropdown in Composer and Agent chat (`.cursor/commands/`).
-- **Continue.dev**: Autocomplete palette in VS Code / JetBrains (`customCommands` in `config.json`).
-- **DeepSeek Harness (dsh)**: Native `/` skill autocomplete popup in Web UI, TUI, and Desktop (`.agents/skills/`).
-- **OpenAI Codex**: Native skill integration (`.codex/skills/`) and command support.
+- **Anthropic Claude Code**: Slash command dropdown in interactive CLI (`/improve`, `/improve-all`).
+- **Cursor IDE**: Slash command dropdown in Composer and Agent chat (`/improve`, `/improve-all`).
+- **Continue.dev**: Autocomplete palette in VS Code / JetBrains (`/improve`, `/improve-all`).
+- **DeepSeek Harness (dsh)**: Native `/` skill autocomplete popup in Web UI, TUI, and Desktop (`/improve`, `/improve-all`).
+- **OpenAI Codex Desktop**: Native skill dropdown in chat composer (`/imp` previews `Improve` & `Improve All`).
+- **OpenAI Codex CLI**: Type `$improve` or `$improve-all` to mention the skill, run `/skills` to open the interactive skill picker, or invoke naturally in prompt. *(Note: Codex CLI reserves `/` exclusively for built-in dispatch commands like `/skills`, `/model`, `/import`).*
 
 ### 1. Global Installation (All Agents)
 

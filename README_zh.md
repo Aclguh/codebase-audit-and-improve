@@ -38,13 +38,14 @@
 
 ## 快速上手与多 Agent 安装
 
-本项目原生支持在多个主流 AI Agent 工具的输入框中，输入 `/` 触发命令自动补全预览（包含名称与说明）：
+本项目原生支持在多个主流 AI Agent 工具的输入框中，输入 `/` 触发命令自动补全预览（包含名称与说明）与技能调用：
 - **Google Antigravity**：原生 Skill 自动补全 (`/improve`, `/improve-all`)。
-- **Anthropic Claude Code**：命令行交互下拉补全 (`.claude/commands/` 与 `.claude/skills/`)。
-- **Cursor IDE**：Composer / Agent 输入框原生下拉补全 (`.cursor/commands/`)。
-- **Continue.dev**：VS Code / JetBrains 输入框下拉菜单 (`customCommands` in `config.json`)。
-- **DeepSeek Harness (dsh)**：Web UI / TUI / Desktop 输入框 `/` 自动补全与卡片渲染 (`.agents/skills/`)。
-- **OpenAI Codex**：原生技能体系与命令支持 (`.codex/skills/`)。
+- **Anthropic Claude Code**：命令行交互原生下拉补全 (`/improve`, `/improve-all`)。
+- **Cursor IDE**：Composer / Agent 输入框原生下拉补全 (`/improve`, `/improve-all`)。
+- **Continue.dev**：VS Code / JetBrains 输入框下拉菜单 (`/improve`, `/improve-all`)。
+- **DeepSeek Harness (dsh)**：Web UI / TUI / Desktop 输入框 `/` 自动补全与卡片渲染 (`/improve`, `/improve-all`)。
+- **OpenAI Codex Desktop**：桌面端输入框原生技能下拉预览（输入 `/imp` 即提示 `Improve` 与 `Improve All`）。
+- **OpenAI Codex CLI**：终端 TUI 严格将 `/` 保留为内置调度命令（如 `/skills`, `/model`, `/import` 等）；使用 `$improve` / `$improve-all` 进行技能引用，或运行 `/skills` 开启交互式技能管理弹窗，或在提问中自然语言调用。
 
 ### 1. 全局一键安装（全生态支持）
 

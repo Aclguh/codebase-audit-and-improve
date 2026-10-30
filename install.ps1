@@ -46,6 +46,14 @@ function Cleanup-Legacy-Duplicates() {
     if ((Test-Path $LegacyCursorCmd) -and (Get-ChildItem $LegacyCursorCmd).Count -eq 0) {
         Remove-Item -Recurse -Force $LegacyCursorCmd -ErrorAction SilentlyContinue
     }
+
+    # Remove duplicate ~/.codex/skills if ~/.agents/skills exists (Codex scans both roots, duplicating entries in Codex Desktop)
+    $CodexSkills = Join-Path $UserHome ".codex\skills"
+    $AgentsSkills = Join-Path $UserHome ".agents\skills"
+    if (Test-Path (Join-Path $AgentsSkills "improve")) {
+        if (Test-Path (Join-Path $CodexSkills "improve")) { Remove-Item -Recurse -Force (Join-Path $CodexSkills "improve") }
+        if (Test-Path (Join-Path $CodexSkills "improve-all")) { Remove-Item -Recurse -Force (Join-Path $CodexSkills "improve-all") }
+    }
 }
 
 function Install-Antigravity() {
@@ -127,11 +135,19 @@ function Install-DeepSeek() {
 
 function Install-Codex() {
     Write-Host "[+] Installing for OpenAI Codex..." -ForegroundColor Cyan
-    $BaseDir = if ($Workspace) { Join-Path $CurrentDir ".codex\skills" } else { Join-Path $UserHome ".codex\skills" }
+    # OpenAI Codex natively discovers skills from ~/.agents/skills (the Agent Skills Specification standard).
+    # Installing to .agents/skills ensures Codex Desktop & CLI have access without creating duplicate entries.
+    $BaseDir = if ($Workspace) { Join-Path $CurrentDir ".agents\skills" } else { Join-Path $UserHome ".agents\skills" }
     foreach ($Name in @("improve", "improve-all")) {
         $Dest = Join-Path $BaseDir $Name
         Install-SkillFiles $Dest $Name
-        Write-Host "    ✓ Registered Codex Skill: $Dest" -ForegroundColor Green
+        Write-Host "    ✓ Registered Codex Skill (via .agents/skills): $Dest" -ForegroundColor Green
+    }
+    # Ensure no duplicate copy in .codex/skills (Codex scans both, which causes 2x duplicates in Codex Desktop)
+    $LegacyCodex = if ($Workspace) { Join-Path $CurrentDir ".codex\skills" } else { Join-Path $UserHome ".codex\skills" }
+    foreach ($Name in @("improve", "improve-all")) {
+        $Old = Join-Path $LegacyCodex $Name
+        if (Test-Path $Old) { Remove-Item -Recurse -Force $Old }
     }
 }
 

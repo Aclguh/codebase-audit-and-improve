@@ -45,6 +45,11 @@ cleanup_legacy_duplicates() {
     # Remove global ~/.cursor/commands (which Claude Code auto-scans and duplicates)
     rm -f "${USER_HOME}/.cursor/commands/improve.md" "${USER_HOME}/.cursor/commands/improve-all.md"
     rmdir "${USER_HOME}/.cursor/commands" 2>/dev/null || true
+
+    # Remove duplicate ~/.codex/skills if ~/.agents/skills exists (Codex scans both roots, duplicating entries in Codex Desktop)
+    if [ -d "${USER_HOME}/.agents/skills/improve" ]; then
+        rm -rf "${USER_HOME}/.codex/skills/improve" "${USER_HOME}/.codex/skills/improve-all"
+    fi
 }
 
 install_antigravity() {
@@ -129,17 +134,26 @@ install_deepseek() {
 
 install_codex() {
     echo -e "\033[36m[+] Installing for OpenAI Codex...\033[0m"
+    # OpenAI Codex natively discovers skills from ~/.agents/skills (the Agent Skills Specification standard).
+    # Installing to .agents/skills ensures Codex Desktop & CLI have access without creating duplicate entries.
     local base_dir
     if [ "$WORKSPACE" = true ]; then
-        base_dir="${CURRENT_DIR}/.codex/skills"
+        base_dir="${CURRENT_DIR}/.agents/skills"
     else
-        base_dir="${USER_HOME}/.codex/skills"
+        base_dir="${USER_HOME}/.agents/skills"
     fi
     for name in "improve" "improve-all"; do
         local dest="${base_dir}/${name}"
         install_skill_files "${dest}" "${name}"
-        echo -e "\033[32m    ✓ Registered Codex Skill: ${dest}\033[0m"
+        echo -e "\033[32m    ✓ Registered Codex Skill (via .agents/skills): ${dest}\033[0m"
     done
+    local legacy_codex
+    if [ "$WORKSPACE" = true ]; then
+        legacy_codex="${CURRENT_DIR}/.codex/skills"
+    else
+        legacy_codex="${USER_HOME}/.codex/skills"
+    fi
+    rm -rf "${legacy_codex}/improve" "${legacy_codex}/improve-all"
 }
 
 # Run cleanup first
