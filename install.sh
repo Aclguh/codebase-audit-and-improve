@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-SKILL_NAME="codebase-audit-and-improve"
+SKILL_NAME="improve"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ "$1" == "--workspace" ]; then
@@ -17,5 +17,5 @@ rm -rf "${TARGET_DIR}"
 cp -R "${SCRIPT_DIR}" "${TARGET_DIR}"
 rm -rf "${TARGET_DIR}/.git"
 
-echo "✓ Successfully installed ${SKILL_NAME}!"
-echo "Restart your agent session or reload workspace to activate."
+echo "Successfully installed ${SKILL_NAME}!"
+echo "Restart your agent session or reload workspace to activate (/improve)."

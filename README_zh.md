@@ -9,7 +9,7 @@
 
 ---
 
-**`codebase-audit-and-improve`** 是一套专为 Google Antigravity 及现代 AI 编程智能体打造的高标准工作流 Skill。它将高层级架构审计与原子化工程落地紧密结合，通过结构化的 `IMPROVEMENTS.md` 实现端到端可追溯的重构治理。
+**`codebase-audit-and-improve`** 是一套专为 Google Antigravity 及现代 AI 编程智能体打造的高标准工作流 Skill（注册命令为 `/improve`）。它将高层级架构审计与原子化工程落地紧密结合，通过结构化的 `IMPROVEMENTS.md` 实现端到端可追溯的重构治理。
 
 ## 核心特性
 
@@ -59,18 +59,32 @@ chmod +x install.sh && ./install.sh
 ./install.sh --workspace
 ```
 
-## 使用方法与触发词
+## 使用方法
 
-在 Antigravity 对话中，向智能体发送以下提示词：
+### 1. 自动生成改进建议文档
+
+在 Antigravity 对话框中直接输入斜杠命令：
 
 ```text
-请评估当前项目的整体状况，从代码质量、架构设计、性能、可维护性、安全性和测试覆盖等方面识别可改进之处。针对每项问题提供具体、可落地的改进建议并说明预期收益，按优先级排序。最终输出一份结构化的临时的改进建议文档IMPROVEMENTS.md，如果.gitignore中不存在的话，将其添加至.gitignore，完成后也不需要移除，包含现状分析、问题清单、改进方案与实施优先级。完成改进建议文档的任意一个内容后需进行提交，当改进建议文档被全部完成时可以删除。
+/improve
 ```
 
-如需让智能体自主按序全部实现：
+智能体将自动执行：
+- 识别项目技术栈与工具链，确保 `.gitignore` 包含 `IMPROVEMENTS.md`。
+- 执行代码静态检查与测试套件获取基线数据。
+- 开展六大维度深度体检。
+- 在项目根目录生成结构化、带优先级的 `IMPROVEMENTS.md` 文档。
+
+*(也支持自然语言长提示词触发：`请评估当前项目的整体状况，从代码质量、架构设计、性能、可维护性、安全性和测试覆盖等方面识别可改进之处...`)*
+
+### 2. 自主按序落地
+
+如需让智能体自主按序全部实现并逐项提交：
 ```text
 /goal 全部实现
 ```
+
+### 3. CI 验证与推送
 
 当所有任务完成后：
 ```text
@@ -81,7 +95,7 @@ push并检测GitHub ci通过情况
 
 ```
 codebase-audit-and-improve/
-├── SKILL.md                     # Antigravity 核心 Skill 定义与 YAML 前言元数据
+├── SKILL.md                     # Antigravity 核心 Skill 定义与 YAML 前言元数据 (/improve)
 ├── README.md                    # 英文项目介绍与使用手册
 ├── README_zh.md                 # 中文项目介绍与使用手册
 ├── LICENSE                      # MIT 开源许可证

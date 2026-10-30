@@ -1,15 +1,26 @@
 ---
-name: codebase-audit-and-improve
+name: improve
 description: >-
   Systematically audits a project's overall health across code quality, architecture,
   performance, maintainability, security, and test coverage, generating a structured
   IMPROVEMENTS.md tracking document. Then autonomously or interactively implements
   recommendations in an atomic, test-verified, and git-tracked loop until completion.
+  Also triggered by the /improve slash command.
 ---
 
 # Codebase Audit and Improvement Workflow (`IMPROVEMENTS.md`)
 
 This skill establishes a proven, enterprise-grade engineering workflow for assessing, planning, tracking, and iteratively improving codebases of any tech stack. It bridges high-level architectural health audits with disciplined, atomic test-driven implementations.
+
+---
+
+## Slash Command Entrypoint (`/improve`)
+
+When invoked via the slash command `/improve` (or when asked to assess/audit the codebase):
+1. **Automated Baseline & Discovery**: Immediately execute **Phase 1** (tech stack detection and `.gitignore` verification).
+2. **Six-Dimensional Health Audit**: Execute **Phase 2** across architecture, code quality, performance, maintainability, security, and test coverage.
+3. **Generate Tracking Document**: Output the structured, prioritized `IMPROVEMENTS.md` at the project root (**Phase 3**).
+4. **Summary & Next Action**: Present the quantitative scorecards and top-priority checklist (`OPT-01`, `OPT-02`...) to the user, and inform them that they can run `/goal 全部实现` (or `/goal implement all`) to begin the atomic implementation loop (**Phase 4**).
 
 ---
 

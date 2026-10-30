@@ -1,9 +1,9 @@
-# Windows Quick Installer for codebase-audit-and-improve skill
+# Windows Quick Installer for improve skill
 param (
     [switch]$Workspace
 )
 
-$SkillName = "codebase-audit-and-improve"
+$SkillName = "improve"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 if ($Workspace) {
@@ -22,5 +22,5 @@ if (Test-Path $TargetDir) {
 New-Item -ItemType Directory -Path (Split-Path -Parent $TargetDir) -Force | Out-Null
 Copy-Item -Recurse -Path $ScriptDir -Destination $TargetDir -Exclude ".git"
 
-Write-Host "✓ Successfully installed $SkillName!" -ForegroundColor Green
-Write-Host "Restart your agent session or reload workspace to activate." -ForegroundColor Yellow
+Write-Host "Successfully installed $SkillName!" -ForegroundColor Green
+Write-Host "Restart your agent session or reload workspace to activate (/improve)." -ForegroundColor Yellow

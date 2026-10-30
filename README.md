@@ -9,7 +9,7 @@
 
 ---
 
-An enterprise-grade, desensitized **Antigravity AI Agent Skill** designed for automated project health assessment, structured roadmapping via temporary `IMPROVEMENTS.md` documents, and disciplined, test-verified atomic implementation loops.
+An enterprise-grade, desensitized **Antigravity AI Agent Skill** (`improve`) designed for automated project health assessment, structured roadmapping via temporary `IMPROVEMENTS.md` documents, and disciplined, test-verified atomic implementation loops.
 
 ## Key Features
 
@@ -59,18 +59,33 @@ chmod +x install.sh && ./install.sh
 ./install.sh --workspace
 ```
 
-## How to Trigger
+## How to Use
 
-In your Antigravity conversation, prompt the agent:
+### 1. Generate Improvement Roadmap
+
+In your Antigravity conversation, simply type the slash command:
 
 ```text
-Please evaluate the overall health of the current project across code quality, architecture design, performance, maintainability, security, and test coverage to identify areas for improvement. Provide actionable recommendations with expected benefits for each issue, ranked by priority. Generate a structured temporary improvement document IMPROVEMENTS.md. If not already present in .gitignore, add it to .gitignore (keep it there even after completion). The document should include current state analysis, problem list, improvement plans, and implementation priorities. Create a commit after completing each item in the document, and delete the document when all items are completed.
+/improve
 ```
 
-To autonomously implement all items:
+The agent will automatically:
+- Inspect project tech stack, tooling, and ensure `IMPROVEMENTS.md` is added to `.gitignore`.
+- Run baseline linters and test suites.
+- Perform a thorough 6-dimensional health audit.
+- Output the quantitative scorecards and prioritized task backlog (`OPT-01`, `OPT-02`...) in `IMPROVEMENTS.md`.
+
+*(Optional natural language prompt is also supported: `Please evaluate the overall health of the current project across code quality, architecture design, performance, maintainability, security, and test coverage...`)*
+
+### 2. Autonomous Implementation
+
+To autonomously implement all items in sequence:
 ```text
 /goal implement all
 ```
+*(or `/goal 全部实现`)*
+
+### 3. Verification & Push
 
 When all tasks are complete:
 ```text
@@ -81,7 +96,7 @@ push and verify GitHub CI status
 
 ```
 codebase-audit-and-improve/
-├── SKILL.md                     # Antigravity skill definition and metadata
+├── SKILL.md                     # Antigravity skill definition and metadata (/improve)
 ├── README.md                    # English documentation
 ├── README_zh.md                 # Chinese documentation
 ├── LICENSE                      # MIT License
