@@ -13,23 +13,28 @@
 
 ## 核心特性
 
-- **六大维度深度体检**：
-  1. **架构设计**：检测上帝类/上帝组件、模块分层跨越、状态管理割裂等。
-  2. **代码质量**：静态检查 0 警告、类型严格性、异常吞没防护。
+- **六大维度深度体检与子代理并行审计**：
+  1. **架构设计**：检测上帝类/上帝组件、模块分层跨越、Monorepo 包隔离。
+  2. **代码质量**：增量零容忍门禁（0 错误、0 新增告警）、类型严格性、异常吞没防护。
   3. **性能与响应度**：主线程同步 I/O 阻塞、单点打字全量重绘、流式与内存占用。
   4. **可维护性**：国际化覆盖、依赖过时、分级日志规范。
   5. **安全性与沙箱**：目录穿越漏洞防御、命令注入防御、解压防 Zip Slip。
   6. **测试与质量**：关键逻辑单测盲区、回归断言、CI 友好度。
+  *(针对超 50+ 文件的大型项目，支持调用 `research` 只读子代理并行扫描，保护主会话上下文)*
+- **全生态与 Monorepo 适配**：开箱即用支持 Flutter/Dart, Node.js (npm/pnpm/yarn/bun), Python (uv/poetry/pdm), Rust, Go, Java/Kotlin (Maven/Gradle), .NET/C#, C/C++ (CMake), PHP, Ruby 等。
 - **结构化进度追踪 (`IMPROVEMENTS.md`)**：
   - 自动保障已在 `.gitignore` 中忽略，不污染远程代码仓库。
   - 标准化任务排期表（P0 紧急阻塞 -> P3 规范打磨），分配独立编号（`OPT-01`、`OPT-02` 等）。
-- **原子化渐进交付闭环 (Atomic Execution Loop)**：
+  - 支持“归档模式”：全部落地后自动归档至 `docs/audits/`，沉淀为团队架构资产。
+- **增量零容忍质量门禁 (Incremental Zero-Tolerance)**：
   - 一项改进对应一次独立 Git Commit（Conventional Commits 规范）。
-  - 提交前必须通过静态代码分析（0 Error, 0 Warning）与单元测试（100% Pass）。
-- **与 `/goal` 深度融合**：
-  - 适合无人值守的长时间重构任务，全部完成并通过验证后输出完成信号。
-- **CI 验证闭环**：
-  - 任务全量落地后清理临时文档，自动推送远程仓库并通过 GitHub CLI (`gh`) 实时跟踪 CI 绿灯。
+  - 区分存量债务与增量告警：**0 错误、0 新增告警，全仓告警总数 <= 基线告警数**，避免老项目历史 warning 阻断紧急修复。
+  - **分级测试**：原子循环期间执行受影响模块的轻量单测，全量回归放到 Phase 5 最终收敛阶段。
+- **保护分支防御与自动化 PR 流**：
+  - 自动识别当前是否为保护分支（`main`, `master`, `release`）。
+  - 在保护分支上自动拉取特性分支并通过 GitHub CLI (`gh pr create`) 提 PR，防止直接向主干强推。
+- **CI 验证闭环与无人值守**：
+  - 与 `/goal` 及 `/improve-all` 深度集成，完成全量落地后自动跟踪 GitHub Actions CI 绿灯。
 
 ## 快速上手与安装
 
@@ -49,7 +54,7 @@ cd codebase-audit-and-improve
 chmod +x install.sh && ./install.sh
 ```
 
-### 工作区安装（仅对当前项目生效）
+### 工作区独占安装（仅本仓库生效）
 
 ```powershell
 # Windows
@@ -59,83 +64,97 @@ chmod +x install.sh && ./install.sh
 ./install.sh --workspace
 ```
 
-## 使用方法
+## 使用指南
 
-### 方式一：一键全流程自主交付 (`/improve-all`)
+### 方式 1：全自主端到端执行 (`/improve-all`)
 
-只需输入一条命令，自动完成全套端到端流程：
+一键串联基线检测、六维审计、路线图生成、原子提交循环、文档归档、提 PR 与 CI 监控：
 
 ```text
 /improve-all
 ```
 
-智能体将全自动依次执行：
-1. 技术栈基线探测与 `.gitignore` 校验。
-2. 六大维度深度架构体检。
-3. 生成结构化 `IMPROVEMENTS.md` 任务清单。
-4. 逐项原子化实现、静态检查（0 警告）与全量测试验证（100% 通过），并生成独立 Git Commit。
-5. 清理临时文档、自动 Push 远程仓库，并实时监听 GitHub Actions CI 至绿灯通过。
+执行流程：
+1. 前置工作区干净度与基线检测 (`check_health.py --json`)。
+2. 六维度深度体检（支持子代理并行分治）。
+3. 生成结构化 `IMPROVEMENTS.md`。
+4. 自动按 P0 -> P3 顺序逐项原子实现（增量零容忍、分级单测、Conventional Commits）。
+5. 全仓回归测试、归档/清理路线图、保护分支创建 PR、推送远程并监控 GitHub Actions CI 绿灯。
 
 ---
 
-### 方式二：分步交互式推进 (`/improve`)
+### 方式 2：分步交互式评估与治理 (`/improve`)
 
-如需先审阅体检报告与方案再推进实现：
+如果你希望在动手前先人工确认技术改进方案：
 
-#### 1. 自动生成改进建议文档
+#### 1. 生成改进建议规划文档
 ```text
 /improve
 ```
-智能体完成全面体检，并在项目根目录生成带打分与任务排期的 `IMPROVEMENTS.md`。
+Agent 将对项目进行全面审计并生成包含架构拓扑、评分卡与实施清单的 `IMPROVEMENTS.md`。
 
-#### 2. 自主按序落地
-确认清单后，输入：
+#### 2. 触发自主落地
+针对方案确认无误后，指示 Agent 开始落地：
 ```text
 /goal 全部实现
 ```
-*(亦可指定单项任务推进)*
 
-#### 3. CI 验证与推送
-当所有任务完成后：
+#### 3. 验收与远程提交
+当清单项全部勾选完毕后：
 ```text
-push并检测GitHub ci通过情况
+push 并监控 GitHub CI 状态
 ```
 
-## 仓库目录结构
+## 仓库结构
 
 ```
 codebase-audit-and-improve/
-├── SKILL.md                     # Antigravity 核心 Skill 定义与 YAML 前言元数据 (/improve, /improve-all)
-├── README.md                    # 英文项目介绍与使用手册
-├── README_zh.md                 # 中文项目介绍与使用手册
-├── LICENSE                      # MIT 开源许可证
-├── install.ps1                  # Windows 一键安装脚本 (同时安装 improve 与 improve-all)
-├── install.sh                   # Linux/macOS 一键安装脚本 (同时安装 improve 与 improve-all)
-├── references/                  # 深度参考文档（按需递进加载，节约 Token）
-│   ├── audit-dimensions.md      # 六大评估维度详细诊断清单与评分细则
-│   ├── improvements-template.md # 通用、脱敏的 IMPROVEMENTS.md 标准模板
-│   ├── execution-loop.md        # 原子化任务实施、静态检查与 Commit 规约
-│   └── ci-monitoring.md         # GitHub CLI 监控与 CI 修复指引
+├── SKILL.md                     # Antigravity Skill 主定义 (/improve, /improve-all)
+├── README.md                    # 英文文档
+├── README_zh.md                 # 中文文档
+├── LICENSE                      # MIT 开源协议
+├── install.ps1                  # Windows 一键安装脚本
+├── install.sh                   # Linux/macOS 一键安装脚本
+├── references/                  # 参考规范与指导手册（按需加载）
+│   ├── audit-dimensions.md      # 六大维度深度审计清单与子代理指导
+│   ├── improvements-template.md # 通用 IMPROVEMENTS.md 标准模板
+│   ├── execution-loop.md        # 原子循环规范、增量门禁与分级测试
+│   └── ci-monitoring.md         # 分支保护、自动化 PR 与 CI 排查
 ├── scripts/                     # 辅助工具脚本
-│   ├── check_health.py          # 跨平台工程技术栈探测与 .gitignore 检查
-│   └── track_progress.py        # IMPROVEMENTS.md 解析器与任务完成度统计
-├── skills/                      # 打包的 Skill 定义目录
-│   ├── improve/                 # /improve 命令定义
-│   └── improve-all/             # /improve-all 命令定义
+│   ├── check_health.py          # 技术栈识别、Monorepo 诊断与基线检测
+│   └── track_progress.py        # 进度解析、动态列匹配与 CI 门禁检查
+├── skills/                      # 预置单技能定义
+│   ├── improve/                 # /improve Skill
+│   └── improve-all/             # /improve-all Skill
+├── tests/                       # 自动化单元测试套件
+│   ├── test_check_health.py     # 探针工具测试
+│   └── test_track_progress.py   # 进度解析工具测试
 └── examples/
-    └── sample-improvements.md   # 脱敏的生产级 IMPROVEMENTS.md 示范样例
+    └── sample-improvements.md   # 生产级样本 IMPROVEMENTS.md
 ```
 
-## 辅助脚本使用
+## 辅助脚本速查
 
 ```bash
-# 检查当前项目技术栈及 .gitignore 是否已排除 IMPROVEMENTS.md
+# 检测当前项目技术栈、Monorepo 及 Git 工作区保护状态
 python scripts/check_health.py
 
-# 统计 IMPROVEMENTS.md 的实施进度与各优先级完成状态
+# 输出供 Agent 消费的结构化 JSON
+python scripts/check_health.py --json
+
+# 自动将 IMPROVEMENTS.md 追加至 .gitignore
+python scripts/check_health.py --fix-gitignore
+
+# 解析与汇报 IMPROVEMENTS.md 进度
 python scripts/track_progress.py IMPROVEMENTS.md
+
+# CI 门禁检查（全部完成 exit 0，未完成 exit 1）
+python scripts/track_progress.py --check
+
+# 运行自动化测试套件
+python -m unittest discover tests
 ```
 
-## 开源许可证
+## 开源协议
 
-本项目采用 [MIT License](./LICENSE) 授权开源。
+本项目采用 [MIT License](./LICENSE) 开源协议。
