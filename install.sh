@@ -13,11 +13,19 @@ fi
 for SKILL_NAME in "${SKILLS[@]}"; do
     TARGET_DIR="${BASE_DIR}/${SKILL_NAME}"
     echo "Installing ${SKILL_NAME} into: ${TARGET_DIR}"
-    mkdir -p "$(dirname "${TARGET_DIR}")"
-    rm -rf "${TARGET_DIR}"
-    cp -R "${SCRIPT_DIR}" "${TARGET_DIR}"
-    rm -rf "${TARGET_DIR}/.git"
+    mkdir -p "${TARGET_DIR}"
+    rm -rf "${TARGET_DIR}"/*
 
+    # Copy shared assets
+    cp -R "${SCRIPT_DIR}/references" "${TARGET_DIR}/"
+    cp -R "${SCRIPT_DIR}/scripts" "${TARGET_DIR}/"
+    rm -rf "${TARGET_DIR}/scripts/__pycache__"
+
+    if [ -f "${SCRIPT_DIR}/LICENSE" ]; then
+        cp "${SCRIPT_DIR}/LICENSE" "${TARGET_DIR}/"
+    fi
+
+    # Copy specialized SKILL.md
     if [ "${SKILL_NAME}" == "improve-all" ]; then
         cp -f "${SCRIPT_DIR}/skills/improve-all/SKILL.md" "${TARGET_DIR}/SKILL.md"
     else

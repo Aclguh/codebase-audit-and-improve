@@ -21,9 +21,24 @@ foreach ($SkillName in $Skills) {
         Remove-Item -Recurse -Force $TargetDir
     }
 
-    New-Item -ItemType Directory -Path (Split-Path -Parent $TargetDir) -Force | Out-Null
-    Copy-Item -Recurse -Path $ScriptDir -Destination $TargetDir -Exclude ".git"
+    New-Item -ItemType Directory -Path $TargetDir -Force | Out-Null
 
+    # Copy shared folders
+    Copy-Item -Recurse -Path (Join-Path $ScriptDir "references") -Destination $TargetDir
+    Copy-Item -Recurse -Path (Join-Path $ScriptDir "scripts") -Destination $TargetDir
+    
+    # Remove pycache if copied
+    $Pycache = Join-Path $TargetDir "scripts\__pycache__"
+    if (Test-Path $Pycache) {
+        Remove-Item -Recurse -Force $Pycache
+    }
+
+    # Copy metadata
+    if (Test-Path (Join-Path $ScriptDir "LICENSE")) {
+        Copy-Item -Path (Join-Path $ScriptDir "LICENSE") -Destination $TargetDir
+    }
+
+    # Copy specialized SKILL.md
     if ($SkillName -eq "improve-all") {
         Copy-Item -Force (Join-Path $ScriptDir "skills\improve-all\SKILL.md") (Join-Path $TargetDir "SKILL.md")
     } else {
