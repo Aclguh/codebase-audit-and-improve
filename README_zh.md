@@ -1,6 +1,8 @@
-# 代码库全方位审计与改进工作流 (`codebase-audit-and-improve`)
+# 通用代码库全方位审计与改进工作流 (`codebase-audit-and-improve`)
 
-[![Skill](https://img.shields.io/badge/Antigravity-Skill-4285F4?logo=google)](https://github.com/Aclguh/codebase-audit-and-improve)
+[![Agent Skill](https://img.shields.io/badge/Agent%20Skill-Universal%20Standard-6366F1)](https://github.com/Aclguh/codebase-audit-and-improve)
+[![Supported Agents](https://img.shields.io/badge/Agents-Claude%20%7C%20Codex%20%7C%20Cursor%20%7C%20DeepSeek%20%7C%20Antigravity-10B981)](https://github.com/Aclguh/codebase-audit-and-improve)
+[![CI](https://github.com/Aclguh/codebase-audit-and-improve/actions/workflows/ci.yml/badge.svg)](https://github.com/Aclguh/codebase-audit-and-improve/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Aclguh/codebase-audit-and-improve/pulls)
@@ -9,18 +11,32 @@
 
 ---
 
-**`codebase-audit-and-improve`** 是一套专为 Google Antigravity 及现代 AI 编程智能体打造的高标准工作流 Skill（注册命令为 `/improve` 与 `/improve-all`）。它将高层级架构审计与原子化工程落地紧密结合，通过结构化的 `IMPROVEMENTS.md` 实现端到端可追溯的重构治理。
+**`codebase-audit-and-improve`** 是一套通用的生产级 **AI 编程智能体审计与改进工作流 Skill**（注册命令为 `/improve` 与 `/improve-all`）。原生遵循开放的 **Agent Skills Specification** 规范，跨平台兼容 Claude Code、OpenAI Codex、Cursor、Google Antigravity、DeepSeek Harness、Continue.dev 等主流 AI 编程助手，将高层级架构审计与原子化工程落地紧密结合，通过结构化的 `IMPROVEMENTS.md` 实现端到端可追溯的代码治理与自主重构。
+
+## 多智能体兼容性矩阵 (Multi-Agent Matrix)
+
+本项目遵循开放技能标准，为各大主流 AI 编程助手提供原生输入框 `/` 补全预览与技能调度支持：
+
+| AI 智能体 / 工具 | 触发语法 | 输入框补全预览 (`/` 提示) | 配置文件作用域 |
+| :--- | :--- | :--- | :--- |
+| **Anthropic Claude Code** | `/improve`, `/improve-all` | 终端命令行原生下拉卡片 | `~/.claude/skills/` |
+| **Cursor IDE** | `/improve`, `/improve-all` | Composer / 聊天窗下拉卡片 | `~/.cursor/rules/` 或 `.cursor/commands/` |
+| **OpenAI Codex (桌面端)** | `/imp` -> `Improve`, `Improve All` | 桌面端 Composer 原生下拉 | `~/.agents/skills/` |
+| **OpenAI Codex (CLI 终端)** | `$improve`, `$improve-all` 或 `/skills` | `$` 符号引用与 `/skills` 交互面板 | `~/.agents/skills/` |
+| **DeepSeek Harness (dsh)** | `/improve`, `/improve-all` | Web UI / TUI / 桌面端提示卡片 | `~/.agents/skills/` |
+| **Google Antigravity** | `/improve`, `/improve-all` | 原生 Skill 调色板与斜杠补全 | `~/.gemini/config/skills/` |
+| **Continue.dev** | `/improve`, `/improve-all` | VS Code / JetBrains 下拉菜单 | `~/.continue/config.json` |
 
 ## 核心特性
 
-- **六大维度深度体检与子代理并行审计**：
+- **六大维度深度体检与并发子代理支持**：
   1. **架构设计**：检测上帝类/上帝组件、模块分层跨越、Monorepo 包隔离。
   2. **代码质量**：增量零容忍门禁（0 错误、0 新增告警）、类型严格性、异常吞没防护。
   3. **性能与响应度**：主线程同步 I/O 阻塞、单点打字全量重绘、流式与内存占用。
   4. **可维护性**：国际化覆盖、依赖过时、分级日志规范。
   5. **安全性与沙箱**：目录穿越漏洞防御、命令注入防御、解压防 Zip Slip。
   6. **测试与质量**：关键逻辑单测盲区、回归断言、CI 友好度。
-  *(针对超 50+ 文件的大型项目，支持调用 `research` 只读子代理并行扫描，保护主会话上下文)*
+  *(针对大型项目，支持调用只读子代理或后台并发线程并行扫描，保护主会话上下文)*
 - **全生态与 Monorepo 适配**：开箱即用支持 Flutter/Dart, Node.js (npm/pnpm/yarn/bun), Python (uv/poetry/pdm), Rust, Go, Java/Kotlin (Maven/Gradle), .NET/C#, C/C++ (CMake), PHP, Ruby 等。
 - **结构化进度追踪 (`IMPROVEMENTS.md`)**：
   - 自动保障已在 `.gitignore` 中忽略，不污染远程代码仓库。
@@ -33,19 +49,10 @@
 - **保护分支防御与自动化 PR 流**：
   - 自动识别当前是否为保护分支（`main`, `master`, `release`）。
   - 在保护分支上自动拉取特性分支并通过 GitHub CLI (`gh pr create`) 提 PR，防止直接向主干强推。
-- **CI 验证闭环与无人值守**：
-  - 与 `/goal` 及 `/improve-all` 深度集成，完成全量落地后自动跟踪 GitHub Actions CI 绿灯。
+- **目标驱动与自主推进**：
+  - 与自主执行模式（如 `/improve-all`、`/goal 全部实现` 或后台任务循环）深度集成，全量通过测试与验证方可终止退出。
 
 ## 快速上手与多 Agent 安装
-
-本项目原生支持在多个主流 AI Agent 工具的输入框中，输入 `/` 触发命令自动补全预览（包含名称与说明）与技能调用：
-- **Google Antigravity**：原生 Skill 自动补全 (`/improve`, `/improve-all`)。
-- **Anthropic Claude Code**：命令行交互原生下拉补全 (`/improve`, `/improve-all`)。
-- **Cursor IDE**：Composer / Agent 输入框原生下拉补全 (`/improve`, `/improve-all`)。
-- **Continue.dev**：VS Code / JetBrains 输入框下拉菜单 (`/improve`, `/improve-all`)。
-- **DeepSeek Harness (dsh)**：Web UI / TUI / Desktop 输入框 `/` 自动补全与卡片渲染 (`/improve`, `/improve-all`)。
-- **OpenAI Codex Desktop**：桌面端输入框原生技能下拉预览（输入 `/imp` 即提示 `Improve` 与 `Improve All`）。
-- **OpenAI Codex CLI**：终端 TUI 严格将 `/` 保留为内置调度命令（如 `/skills`, `/model`, `/import` 等）；使用 `$improve` / `$improve-all` 进行技能引用，或运行 `/skills` 开启交互式技能管理弹窗，或在提问中自然语言调用。
 
 ### 1. 全局一键安装（全生态支持）
 
@@ -65,11 +72,11 @@ cd codebase-audit-and-improve
 chmod +x install.sh && ./install.sh all
 ```
 
-*提示：也可以指定单一工具安装：`-Target Antigravity`、`-Target Claude`、`-Target Cursor` 或 `-Target Continue`。*
+*提示：也可以指定单一工具安装：`-Target Claude`、`-Target Codex`、`-Target Cursor`、`-Target DeepSeek`、`-Target Antigravity` 或 `-Target Continue`。*
 
 ### 2. 工作区专属安装（随项目提交团队共享）
 
-直接在当前代码仓库工作区生成配置，团队内任何使用 Antigravity、Claude Code、Cursor 或 Continue 的成员打开项目输入 `/` 即可联想补全：
+直接在当前代码仓库工作区生成配置，团队内任何使用 Claude Code、Codex、Cursor、DeepSeek Harness、Antigravity 或 Continue 的成员打开项目输入 `/` 即可联想补全：
 
 ```powershell
 # Windows
@@ -88,48 +95,52 @@ chmod +x install.sh && ./install.sh all
 ```text
 /improve-all
 ```
+*(在不支持斜杠命令的环境中，可直接输入：`执行 improve-all 对当前代码库进行全方位体检与重构`)*
 
 执行流程：
 1. 前置工作区干净度与基线检测 (`check_health.py --json`)。
-2. 六维度深度体检（支持子代理并行分治）。
+2. 六维度深度体检（支持子代理/后台并发线程分治）。
 3. 生成结构化 `IMPROVEMENTS.md`。
 4. 自动按 P0 -> P3 顺序逐项原子实现（增量零容忍、分级单测、Conventional Commits）。
 5. 全仓回归测试、归档/清理路线图、保护分支创建 PR、推送远程并监控 GitHub Actions CI 绿灯。
 
 ---
 
-### 方式 2：分步交互式评估与治理 (`/improve`)
+### 方式 2：分步交互式工作流 (`/improve`)
 
-如果你希望在动手前先人工确认技术改进方案：
+若希望在落地前先审阅审计发现与重构方案：
 
-#### 1. 生成改进建议规划文档
+#### 1. 生成改进路线图
 ```text
 /improve
 ```
-Agent 将对项目进行全面审计并生成包含架构拓扑、评分卡与实施清单的 `IMPROVEMENTS.md`。
+*(在 Codex CLI 中输入 `$improve`；或在对话中输入：`使用 improve 技能进行代码库体检`)*
+
+智能体将审计代码库并生成包含定量评分与优先级清单的 `IMPROVEMENTS.md`。
 
 #### 2. 触发自主落地
 针对方案确认无误后，指示 Agent 开始落地：
 ```text
-/goal 全部实现
+原子化实现 IMPROVEMENTS.md 中的所有改进项
 ```
+*(在支持 `/goal` 的工具中亦可直接使用 `/goal 全部实现` 或 `/goal implement all`)*
 
 #### 3. 验收与远程提交
 当清单项全部勾选完毕后：
 ```text
-push 并监控 GitHub CI 状态
+运行全量测试套件，push 并监控 GitHub CI 状态
 ```
 
 ## 仓库结构
 
 ```
 codebase-audit-and-improve/
-├── SKILL.md                     # Antigravity Skill 主定义 (/improve, /improve-all)
+├── SKILL.md                     # 通用 Agent Skill 入口主定义 (/improve, /improve-all)
 ├── README.md                    # 英文文档
 ├── README_zh.md                 # 中文文档
 ├── LICENSE                      # MIT 开源协议
-├── install.ps1                  # Windows 一键安装脚本
-├── install.sh                   # Linux/macOS 一键安装脚本
+├── install.ps1                  # Windows 多 Agent 安装脚本
+├── install.sh                   # Linux/macOS 多 Agent 安装脚本
 ├── references/                  # 参考规范与指导手册（按需加载）
 │   ├── audit-dimensions.md      # 六大维度深度审计清单与子代理指导
 │   ├── improvements-template.md # 通用 IMPROVEMENTS.md 标准模板
@@ -141,6 +152,9 @@ codebase-audit-and-improve/
 ├── skills/                      # 预置单技能定义
 │   ├── improve/                 # /improve Skill
 │   └── improve-all/             # /improve-all Skill
+├── templates/                   # 非标 Agent 的集成模板
+│   ├── continue/                # Continue.dev 自定义命令配置
+│   └── cursor/                  # Cursor IDE 命令模板
 ├── tests/                       # 自动化单元测试套件
 │   ├── test_check_health.py     # 探针工具测试
 │   └── test_track_progress.py   # 进度解析工具测试
@@ -160,16 +174,16 @@ python scripts/check_health.py --json
 # 自动将 IMPROVEMENTS.md 追加至 .gitignore
 python scripts/check_health.py --fix-gitignore
 
-# 解析与汇报 IMPROVEMENTS.md 进度
+# 解析 IMPROVEMENTS.md 中的实施进度与完成率
 python scripts/track_progress.py IMPROVEMENTS.md
 
-# CI 门禁检查（全部完成 exit 0，未完成 exit 1）
+# CI 门禁模式（100% 完成返回 0，存在未完成项返回 1）
 python scripts/track_progress.py --check
 
-# 运行自动化测试套件
+# 执行自动化测试套件
 python -m unittest discover tests
 ```
 
 ## 开源协议
 
-本项目采用 [MIT License](./LICENSE) 开源协议。
+本项目采用 [MIT 许可证](./LICENSE) 开源。

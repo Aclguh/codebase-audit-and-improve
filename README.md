@@ -1,6 +1,8 @@
 # Codebase Audit & Improvement Workflow (`codebase-audit-and-improve`)
 
-[![Skill](https://img.shields.io/badge/Antigravity-Skill-4285F4?logo=google)](https://github.com/Aclguh/codebase-audit-and-improve)
+[![Agent Skill](https://img.shields.io/badge/Agent%20Skill-Universal%20Standard-6366F1)](https://github.com/Aclguh/codebase-audit-and-improve)
+[![Supported Agents](https://img.shields.io/badge/Agents-Claude%20%7C%20Codex%20%7C%20Cursor%20%7C%20DeepSeek%20%7C%20Antigravity-10B981)](https://github.com/Aclguh/codebase-audit-and-improve)
+[![CI](https://github.com/Aclguh/codebase-audit-and-improve/actions/workflows/ci.yml/badge.svg)](https://github.com/Aclguh/codebase-audit-and-improve/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Aclguh/codebase-audit-and-improve/pulls)
@@ -9,18 +11,32 @@
 
 ---
 
-An enterprise-grade, desensitized **Antigravity AI Agent Skill** (`/improve` and `/improve-all`) designed for automated project health assessment, structured roadmapping via temporary `IMPROVEMENTS.md` documents, and disciplined, test-verified atomic implementation loops.
+A universal, production-grade **AI Coding Agent Skill & Workflow** (`/improve` and `/improve-all`) built for automated codebase health audits, structured roadmapping via temporary `IMPROVEMENTS.md` documents, and disciplined, test-verified atomic implementation loops across modern AI programming assistants.
+
+## Multi-Agent Compatibility Matrix
+
+This project complies with the **Agent Skills Specification** and provides native autocompletion (`/` preview) and command invocation across leading AI coding tools:
+
+| AI Agent / Tool | Invocation Syntax | Autocomplete (`/` preview) | Configuration Scope |
+| :--- | :--- | :--- | :--- |
+| **Anthropic Claude Code** | `/improve`, `/improve-all` | Native CLI dropdown | `~/.claude/skills/` |
+| **Cursor IDE** | `/improve`, `/improve-all` | Composer / Agent chat dropdown | `~/.cursor/rules/` or `.cursor/commands/` |
+| **OpenAI Codex (Desktop)** | `/imp` -> `Improve`, `Improve All` | Native Composer dropdown | `~/.agents/skills/` |
+| **OpenAI Codex (CLI)** | `$improve`, `$improve-all`, or `/skills` | `$` mentions & interactive `/skills` menu | `~/.agents/skills/` |
+| **DeepSeek Harness (dsh)** | `/improve`, `/improve-all` | Web UI / TUI / Desktop popup | `~/.agents/skills/` |
+| **Google Antigravity** | `/improve`, `/improve-all` | Native Skill Palette | `~/.gemini/config/skills/` |
+| **Continue.dev** | `/improve`, `/improve-all` | VS Code / JetBrains palette | `~/.continue/config.json` |
 
 ## Key Features
 
-- **Multi-Dimensional Audit & Subagent Support**: Thorough assessment across 6 core technical dimensions:
+- **Multi-Dimensional Audit & Parallel Delegation**: Thorough assessment across 6 core technical dimensions:
   1. **Architecture Design & Modularity**: Detect god classes/components, layer-skipping, and Monorepo boundaries.
   2. **Code Quality & Robustness**: Enforce incremental zero-tolerance (0 errors, 0 new warnings), strict typing, and defensive exception handling.
   3. **Performance & Responsiveness**: Mitigate main-thread blocking I/O, unnecessary full rerenders, and streaming/memory overhead.
   4. **Maintainability & Engineering Practices**: Ensure localization coverage, update deprecated dependencies, and enforce logging standards.
   5. **Security & Sandbox Defense**: Defend against path traversal, command injection, and Zip Slip vulnerabilities.
   6. **Testing & Quality Assurance**: Eliminate coverage blind spots in critical logic, add regression assertions, and ensure CI friendliness.
-  *(Supports delegating parallel sub-audits to read-only `research` subagents for large codebases to preserve main context).*
+  *(Supports delegating parallel sub-audits to read-only background subagents or child threads in large codebases to preserve main context).*
 - **Monorepo & Polyglot Ecosystem**: Out-of-the-box detection for Flutter/Dart, Node.js (npm/pnpm/yarn/bun), Python (uv/poetry/pdm), Rust, Go, Java/Kotlin (Maven/Gradle), .NET/C#, C/C++ (CMake), PHP, and Ruby.
 - **Structured Tracking (`IMPROVEMENTS.md`)**:
   - Automatically guarded in `.gitignore` to prevent polluting remote repositories.
@@ -34,18 +50,9 @@ An enterprise-grade, desensitized **Antigravity AI Agent Skill** (`/improve` and
   - Automatically detects protected branches (`main`, `master`, `release`).
   - Promotes improvements to dedicated feature branches and opens Pull Requests via GitHub CLI (`gh pr create`).
 - **Goal-Driven Autonomy**:
-  - Pairs with `/goal` or `/improve-all` for autonomous refactoring, terminating only when all tasks pass verification.
+  - Pairs with autonomous execution modes (`/improve-all`, `/goal implement all`, or background agent loops), terminating only when all tasks pass verification.
 
-## Quick Start & Multi-Agent Installation
-
-This project provides native **Slash Command Autocompletion (`/` preview) & Skill Support** across multiple AI Agent tools:
-- **Google Antigravity**: Native skill autocompletion (`/improve`, `/improve-all`).
-- **Anthropic Claude Code**: Slash command dropdown in interactive CLI (`/improve`, `/improve-all`).
-- **Cursor IDE**: Slash command dropdown in Composer and Agent chat (`/improve`, `/improve-all`).
-- **Continue.dev**: Autocomplete palette in VS Code / JetBrains (`/improve`, `/improve-all`).
-- **DeepSeek Harness (dsh)**: Native `/` skill autocomplete popup in Web UI, TUI, and Desktop (`/improve`, `/improve-all`).
-- **OpenAI Codex Desktop**: Native skill dropdown in chat composer (`/imp` previews `Improve` & `Improve All`).
-- **OpenAI Codex CLI**: Type `$improve` or `$improve-all` to mention the skill, run `/skills` to open the interactive skill picker, or invoke naturally in prompt. *(Note: Codex CLI reserves `/` exclusively for built-in dispatch commands like `/skills`, `/model`, `/import`).*
+## Quick Start & Installation
 
 ### 1. Global Installation (All Agents)
 
@@ -65,11 +72,11 @@ cd codebase-audit-and-improve
 chmod +x install.sh && ./install.sh all
 ```
 
-*Tip: You can also specify a single agent target: `-Target Antigravity`, `-Target Claude`, `-Target Cursor`, or `-Target Continue`.*
+*Tip: You can also specify an individual agent target: `-Target Claude`, `-Target Codex`, `-Target Cursor`, `-Target DeepSeek`, `-Target Antigravity`, or `-Target Continue`.*
 
 ### 2. Workspace-Only Installation (Committed to your project repository)
 
-Generate the commands and skills directly in your current repository workspace so any team member using Antigravity, Claude Code, Cursor, or Continue gets immediate `/` autocompletion:
+Generate the commands and skills directly in your current repository workspace so any team member using Claude Code, Codex, Cursor, DeepSeek Harness, Antigravity, or Continue gets immediate `/` autocompletion:
 
 ```powershell
 # Windows
@@ -88,10 +95,11 @@ To run the complete audit, atomic implementation, test verification, git commits
 ```text
 /improve-all
 ```
+*(Or in agents without slash commands: `Execute improve-all to audit and refactor this codebase`)*
 
 The agent will execute end-to-end:
 1. Pre-flight cleanliness & baseline discovery (`check_health.py --json`).
-2. Six-dimensional health audit (parallel subagents supported).
+2. Six-dimensional health audit (parallel subagents/threads supported).
 3. Generate structured `IMPROVEMENTS.md`.
 4. Atomically implement each task in sequence (incremental zero-tolerance lint gate, tiered tests, Conventional Commits).
 5. Run full regression suite, archive/clean up `IMPROVEMENTS.md`, create PR if on protected branch, push to remote, and monitor GitHub Actions CI until green.
@@ -106,31 +114,33 @@ If you want to review findings before implementing:
 ```text
 /improve
 ```
+*(Or in Codex CLI: `$improve`; or in prompt: `Run codebase audit with improve skill`)*
+
 The agent audits the codebase and produces `IMPROVEMENTS.md` with quantitative scorecards and prioritized task lists.
 
 #### 2. Implement Tasks
-To autonomously implement all items:
+Instruct the agent to autonomously implement all items:
 ```text
-/goal implement all
+Implement all tasks in IMPROVEMENTS.md atomically
 ```
-*(or `/goal 全部实现`)*
+*(or `/goal implement all` in tools supporting `/goal`)*
 
 #### 3. Verification, PR & Remote Push
 When all tasks are complete:
 ```text
-push and verify GitHub CI status
+Run full test suite, push changes, and verify CI status
 ```
 
 ## Repository Structure
 
 ```
 codebase-audit-and-improve/
-├── SKILL.md                     # Antigravity skill definition (/improve, /improve-all)
+├── SKILL.md                     # Universal Agent Skill entrypoint (/improve, /improve-all)
 ├── README.md                    # English documentation
 ├── README_zh.md                 # Chinese documentation
 ├── LICENSE                      # MIT License
-├── install.ps1                  # Windows installation script (improve & improve-all)
-├── install.sh                   # Linux/macOS installation script (improve & improve-all)
+├── install.ps1                  # Windows multi-agent installation script
+├── install.sh                   # Linux/macOS multi-agent installation script
 ├── references/                  # Reference documents (loaded on demand)
 │   ├── audit-dimensions.md      # Detailed diagnostic checklists for 6 dimensions
 │   ├── improvements-template.md # Universal IMPROVEMENTS.md template
@@ -142,6 +152,9 @@ codebase-audit-and-improve/
 ├── skills/                      # Bundled skill definitions
 │   ├── improve/                 # /improve skill
 │   └── improve-all/             # /improve-all skill
+├── templates/                   # Integration templates for non-standard agents
+│   ├── continue/                # Continue.dev custom commands configuration
+│   └── cursor/                  # Cursor IDE command templates
 ├── tests/                       # Automated test suite
 │   ├── test_check_health.py     # Unit tests for health inspector
 │   └── test_track_progress.py   # Unit tests for progress tracker
