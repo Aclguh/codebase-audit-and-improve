@@ -36,32 +36,44 @@ An enterprise-grade, desensitized **Antigravity AI Agent Skill** (`/improve` and
 - **Goal-Driven Autonomy**:
   - Pairs with `/goal` or `/improve-all` for autonomous refactoring, terminating only when all tasks pass verification.
 
-## Quick Start & Installation
+## Quick Start & Multi-Agent Installation
 
-### Global Installation (Applies to all Antigravity workspaces)
+This project provides native **Slash Command Autocompletion (`/` preview)** across multiple AI Agent tools:
+- **Google Antigravity**: Native skill autocompletion (`/improve`, `/improve-all`).
+- **Anthropic Claude Code**: Slash command dropdown in interactive CLI (`.claude/commands/` & `.claude/skills/`).
+- **Cursor IDE**: Slash command dropdown in Composer and Agent chat (`.cursor/commands/`).
+- **Continue.dev**: Autocomplete palette in VS Code / JetBrains (`customCommands` in `config.json`).
+
+### 1. Global Installation (All Agents)
+
+Install for all detected agent environments in a single command:
 
 **PowerShell (Windows):**
 ```powershell
 git clone https://github.com/Aclguh/codebase-audit-and-improve.git
 cd codebase-audit-and-improve
-.\install.ps1
+.\install.ps1 -Target All
 ```
 
 **Bash (Linux / macOS):**
 ```bash
 git clone https://github.com/Aclguh/codebase-audit-and-improve.git
 cd codebase-audit-and-improve
-chmod +x install.sh && ./install.sh
+chmod +x install.sh && ./install.sh all
 ```
 
-### Workspace-Only Installation (Committed to your project)
+*Tip: You can also specify a single agent target: `-Target Antigravity`, `-Target Claude`, `-Target Cursor`, or `-Target Continue`.*
+
+### 2. Workspace-Only Installation (Committed to your project repository)
+
+Generate the commands and skills directly in your current repository workspace so any team member using Antigravity, Claude Code, Cursor, or Continue gets immediate `/` autocompletion:
 
 ```powershell
 # Windows
-.\install.ps1 -Workspace
+.\install.ps1 -Target All -Workspace
 
 # Linux / macOS
-./install.sh --workspace
+./install.sh all --workspace
 ```
 
 ## How to Use

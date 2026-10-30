@@ -1,0 +1,14 @@
+{
+  "customCommands": [
+    {
+      "name": "improve",
+      "description": "Systematically audits a project's overall health across code quality, architecture, performance, maintainability, security, and test coverage, generating a structured IMPROVEMENTS.md tracking document.",
+      "prompt": "Please execute the codebase health audit and planning workflow (/improve): 1. Pre-flight verification & baseline discovery (`python scripts/check_health.py --json`). 2. Six-dimensional health audit following `references/audit-dimensions.md`. 3. Generate structured `IMPROVEMENTS.md` tracking document following `references/improvements-template.md`."
+    },
+    {
+      "name": "improve-all",
+      "description": "Executes the complete, end-to-end codebase audit, atomic implementation, test verification, git commit loop, remote push, and CI monitoring in a single autonomous pipeline.",
+      "prompt": "Please execute the full-loop codebase audit and improvement pipeline (/improve-all): Phase 1 to Phase 5 following `SKILL.md` and `references/execution-loop.md`."
+    }
+  ]
+}

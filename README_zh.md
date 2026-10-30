@@ -36,32 +36,44 @@
 - **CI 验证闭环与无人值守**：
   - 与 `/goal` 及 `/improve-all` 深度集成，完成全量落地后自动跟踪 GitHub Actions CI 绿灯。
 
-## 快速上手与安装
+## 快速上手与多 Agent 安装
 
-### 全局安装（适用于所有 Antigravity 工作区）
+本项目原生支持在多个主流 AI Agent 工具的输入框中，输入 `/` 触发命令自动补全预览（包含名称与说明）：
+- **Google Antigravity**：原生 Skill 自动补全 (`/improve`, `/improve-all`)。
+- **Anthropic Claude Code**：命令行交互下拉补全 (`.claude/commands/` 与 `.claude/skills/`)。
+- **Cursor IDE**：Composer / Agent 输入框原生下拉补全 (`.cursor/commands/`)。
+- **Continue.dev**：VS Code / JetBrains 输入框下拉菜单 (`customCommands` in `config.json`)。
+
+### 1. 全局一键安装（全生态支持）
+
+一键安装到本地所有已检测到的 Agent 工具目录中：
 
 **PowerShell (Windows):**
 ```powershell
 git clone https://github.com/Aclguh/codebase-audit-and-improve.git
 cd codebase-audit-and-improve
-.\install.ps1
+.\install.ps1 -Target All
 ```
 
 **Bash (Linux / macOS):**
 ```bash
 git clone https://github.com/Aclguh/codebase-audit-and-improve.git
 cd codebase-audit-and-improve
-chmod +x install.sh && ./install.sh
+chmod +x install.sh && ./install.sh all
 ```
 
-### 工作区独占安装（仅本仓库生效）
+*提示：也可以指定单一工具安装：`-Target Antigravity`、`-Target Claude`、`-Target Cursor` 或 `-Target Continue`。*
+
+### 2. 工作区专属安装（随项目提交团队共享）
+
+直接在当前代码仓库工作区生成配置，团队内任何使用 Antigravity、Claude Code、Cursor 或 Continue 的成员打开项目输入 `/` 即可联想补全：
 
 ```powershell
 # Windows
-.\install.ps1 -Workspace
+.\install.ps1 -Target All -Workspace
 
 # Linux / macOS
-./install.sh --workspace
+./install.sh all --workspace
 ```
 
 ## 使用指南
