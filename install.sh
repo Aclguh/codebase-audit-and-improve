@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Multi-Agent Installer for improve and improve-all
 # Supports Antigravity, Claude Code, Cursor, Continue.dev, DeepSeek Harness (dsh), and OpenAI Codex
+# Deduplicated & clean: ensures each agent sees exactly ONE /improve and ONE /improve-all entry
 set -e
 
 TARGET="${1:-all}"
@@ -36,6 +37,16 @@ install_skill_files() {
     fi
 }
 
+cleanup_legacy_duplicates() {
+    # Remove redundant legacy commands that cause duplicate slash commands in Claude Code
+    rm -f "${USER_HOME}/.claude/commands/improve.md" "${USER_HOME}/.claude/commands/improve-all.md"
+    rmdir "${USER_HOME}/.claude/commands" 2>/dev/null || true
+
+    # Remove global ~/.cursor/commands (which Claude Code auto-scans and duplicates)
+    rm -f "${USER_HOME}/.cursor/commands/improve.md" "${USER_HOME}/.cursor/commands/improve-all.md"
+    rmdir "${USER_HOME}/.cursor/commands" 2>/dev/null || true
+}
+
 install_antigravity() {
     echo -e "\033[36m[+] Installing for Antigravity...\033[0m"
     local base_dir
@@ -54,37 +65,33 @@ install_antigravity() {
 install_claude() {
     echo -e "\033[36m[+] Installing for Claude Code...\033[0m"
     local skill_base
-    local cmd_base
     if [ "$WORKSPACE" = true ]; then
         skill_base="${CURRENT_DIR}/.claude/skills"
-        cmd_base="${CURRENT_DIR}/.claude/commands"
     else
         skill_base="${USER_HOME}/.claude/skills"
-        cmd_base="${USER_HOME}/.claude/commands"
     fi
     for name in "improve" "improve-all"; do
         local dest="${skill_base}/${name}"
         install_skill_files "${dest}" "${name}"
         echo -e "\033[32m    ✓ Registered Claude Skill: ${dest}\033[0m"
     done
-    mkdir -p "${cmd_base}"
-    cp -f "${SCRIPT_DIR}/integrations/claude/commands/improve.md" "${cmd_base}/improve.md"
-    cp -f "${SCRIPT_DIR}/integrations/claude/commands/improve-all.md" "${cmd_base}/improve-all.md"
-    echo -e "\033[32m    ✓ Registered Claude Slash Commands in: ${cmd_base}\033[0m"
 }
 
 install_cursor() {
     echo -e "\033[36m[+] Installing for Cursor IDE...\033[0m"
-    local cmd_base
     if [ "$WORKSPACE" = true ]; then
-        cmd_base="${CURRENT_DIR}/.cursor/commands"
+        local cmd_base="${CURRENT_DIR}/.cursor/commands"
+        mkdir -p "${cmd_base}"
+        cp -f "${SCRIPT_DIR}/templates/cursor/improve.md" "${cmd_base}/improve.md"
+        cp -f "${SCRIPT_DIR}/templates/cursor/improve-all.md" "${cmd_base}/improve-all.md"
+        echo -e "\033[32m    ✓ Registered Workspace Cursor Commands in: ${cmd_base}\033[0m"
     else
-        cmd_base="${USER_HOME}/.cursor/commands"
+        local rules_base="${USER_HOME}/.cursor/rules"
+        mkdir -p "${rules_base}"
+        cp -f "${SCRIPT_DIR}/templates/cursor/improve.md" "${rules_base}/improve.mdc"
+        cp -f "${SCRIPT_DIR}/templates/cursor/improve-all.md" "${rules_base}/improve-all.mdc"
+        echo -e "\033[32m    ✓ Registered Global Cursor Rules in: ${rules_base}\033[0m"
     fi
-    mkdir -p "${cmd_base}"
-    cp -f "${SCRIPT_DIR}/integrations/cursor/commands/improve.md" "${cmd_base}/improve.md"
-    cp -f "${SCRIPT_DIR}/integrations/cursor/commands/improve-all.md" "${cmd_base}/improve-all.md"
-    echo -e "\033[32m    ✓ Registered Cursor Slash Commands in: ${cmd_base}\033[0m"
 }
 
 install_continue() {
@@ -98,10 +105,10 @@ install_continue() {
     mkdir -p "${config_dir}"
     local config_file="${config_dir}/config.json"
     if [ ! -f "${config_file}" ]; then
-        cp -f "${SCRIPT_DIR}/integrations/continue/config.json" "${config_file}"
+        cp -f "${SCRIPT_DIR}/templates/continue/config.json" "${config_file}"
         echo -e "\033[32m    ✓ Created: ${config_file}\033[0m"
     else
-        echo -e "\033[33m    ! Existing config.json found at ${config_file}. Please check integrations/continue/config.json to merge customCommands.\033[0m"
+        echo -e "\033[33m    ! Existing config.json found at ${config_file}. Please check templates/continue/config.json to merge customCommands.\033[0m"
     fi
 }
 
@@ -135,6 +142,9 @@ install_codex() {
     done
 }
 
+# Run cleanup first
+cleanup_legacy_duplicates
+
 echo "================================================="
 echo "Codebase Audit & Improve: Multi-Agent Installer"
 echo "Target: ${TARGET} | Workspace: ${WORKSPACE}"
@@ -150,5 +160,5 @@ if [ "$TARGET_LOWER" == "all" ] || [ "$TARGET_LOWER" == "deepseek" ]; then insta
 if [ "$TARGET_LOWER" == "all" ] || [ "$TARGET_LOWER" == "codex" ]; then install_codex; fi
 
 echo ""
-echo -e "\033[32mAll selected slash commands and skills have been successfully installed!\033[0m"
+echo -e "\033[32mAll selected slash commands and skills have been cleanly installed without duplicates!\033[0m"
 echo "Ready for Antigravity, Claude Code, Cursor, Continue, DeepSeek Harness, and Codex."

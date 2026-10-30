@@ -1,5 +1,6 @@
 # Multi-Agent Installer for improve and improve-all
 # Supports Antigravity, Claude Code, Cursor, Continue.dev, DeepSeek Harness (dsh), and OpenAI Codex
+# Deduplicated & clean: ensures each agent sees exactly ONE /improve and ONE /improve-all entry
 param (
     [ValidateSet("Antigravity", "Claude", "Cursor", "Continue", "DeepSeek", "Codex", "All")]
     [string]$Target = "All",
@@ -29,6 +30,24 @@ function Install-SkillFiles($DestinationDir, $SkillName) {
     }
 }
 
+function Cleanup-Legacy-Duplicates() {
+    # Remove redundant legacy commands that cause duplicate slash commands in Claude Code
+    $LegacyClaudeCmd = Join-Path $UserHome ".claude\commands"
+    if (Test-Path (Join-Path $LegacyClaudeCmd "improve.md")) { Remove-Item -Force (Join-Path $LegacyClaudeCmd "improve.md") }
+    if (Test-Path (Join-Path $LegacyClaudeCmd "improve-all.md")) { Remove-Item -Force (Join-Path $LegacyClaudeCmd "improve-all.md") }
+    if ((Test-Path $LegacyClaudeCmd) -and (Get-ChildItem $LegacyClaudeCmd).Count -eq 0) {
+        Remove-Item -Recurse -Force $LegacyClaudeCmd -ErrorAction SilentlyContinue
+    }
+    
+    # Remove global ~/.cursor/commands (which Claude Code auto-scans and duplicates)
+    $LegacyCursorCmd = Join-Path $UserHome ".cursor\commands"
+    if (Test-Path (Join-Path $LegacyCursorCmd "improve.md")) { Remove-Item -Force (Join-Path $LegacyCursorCmd "improve.md") }
+    if (Test-Path (Join-Path $LegacyCursorCmd "improve-all.md")) { Remove-Item -Force (Join-Path $LegacyCursorCmd "improve-all.md") }
+    if ((Test-Path $LegacyCursorCmd) -and (Get-ChildItem $LegacyCursorCmd).Count -eq 0) {
+        Remove-Item -Recurse -Force $LegacyCursorCmd -ErrorAction SilentlyContinue
+    }
+}
+
 function Install-Antigravity() {
     Write-Host "[+] Installing for Antigravity..." -ForegroundColor Cyan
     $BaseDir = if ($Workspace) { Join-Path $CurrentDir ".agents\skills" } else { Join-Path $UserHome ".gemini\config\skills" }
@@ -47,20 +66,24 @@ function Install-Claude() {
         Install-SkillFiles $Dest $Name
         Write-Host "    ✓ Registered Claude Skill: $Dest" -ForegroundColor Green
     }
-    $CmdBase = if ($Workspace) { Join-Path $CurrentDir ".claude\commands" } else { Join-Path $UserHome ".claude\commands" }
-    New-Item -ItemType Directory -Path $CmdBase -Force | Out-Null
-    Copy-Item -Force (Join-Path $ScriptDir "integrations\claude\commands\improve.md") (Join-Path $CmdBase "improve.md")
-    Copy-Item -Force (Join-Path $ScriptDir "integrations\claude\commands\improve-all.md") (Join-Path $CmdBase "improve-all.md")
-    Write-Host "    ✓ Registered Claude Slash Commands in: $CmdBase" -ForegroundColor Green
 }
 
 function Install-Cursor() {
     Write-Host "[+] Installing for Cursor IDE..." -ForegroundColor Cyan
-    $CmdBase = if ($Workspace) { Join-Path $CurrentDir ".cursor\commands" } else { Join-Path $UserHome ".cursor\commands" }
-    New-Item -ItemType Directory -Path $CmdBase -Force | Out-Null
-    Copy-Item -Force (Join-Path $ScriptDir "integrations\cursor\commands\improve.md") (Join-Path $CmdBase "improve.md")
-    Copy-Item -Force (Join-Path $ScriptDir "integrations\cursor\commands\improve-all.md") (Join-Path $CmdBase "improve-all.md")
-    Write-Host "    ✓ Registered Cursor Slash Commands in: $CmdBase" -ForegroundColor Green
+    if ($Workspace) {
+        $CmdBase = Join-Path $CurrentDir ".cursor\commands"
+        New-Item -ItemType Directory -Path $CmdBase -Force | Out-Null
+        Copy-Item -Force (Join-Path $ScriptDir "templates\cursor\improve.md") (Join-Path $CmdBase "improve.md")
+        Copy-Item -Force (Join-Path $ScriptDir "templates\cursor\improve-all.md") (Join-Path $CmdBase "improve-all.md")
+        Write-Host "    ✓ Registered Workspace Cursor Commands in: $CmdBase" -ForegroundColor Green
+    } else {
+        # Global Cursor rules
+        $RulesBase = Join-Path $UserHome ".cursor\rules"
+        New-Item -ItemType Directory -Path $RulesBase -Force | Out-Null
+        Copy-Item -Force (Join-Path $ScriptDir "templates\cursor\improve.md") (Join-Path $RulesBase "improve.mdc")
+        Copy-Item -Force (Join-Path $ScriptDir "templates\cursor\improve-all.md") (Join-Path $RulesBase "improve-all.mdc")
+        Write-Host "    ✓ Registered Global Cursor Rules in: $RulesBase" -ForegroundColor Green
+    }
 }
 
 function Install-Continue() {
@@ -69,7 +92,7 @@ function Install-Continue() {
     New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null
     $ConfigFile = Join-Path $ConfigDir "config.json"
     
-    $SourceCommands = (Get-Content (Join-Path $ScriptDir "integrations\continue\config.json") -Raw | ConvertFrom-Json).customCommands
+    $SourceCommands = (Get-Content (Join-Path $ScriptDir "templates\continue\config.json") -Raw | ConvertFrom-Json).customCommands
     
     if (Test-Path $ConfigFile) {
         try {
@@ -83,11 +106,11 @@ function Install-Continue() {
             $ExistingJson | ConvertTo-Json -Depth 10 | Set-Content $ConfigFile -Encoding UTF8
             Write-Host "    ✓ Merged into: $ConfigFile" -ForegroundColor Green
         } catch {
-            Copy-Item -Force (Join-Path $ScriptDir "integrations\continue\config.json") $ConfigFile
+            Copy-Item -Force (Join-Path $ScriptDir "templates\continue\config.json") $ConfigFile
             Write-Host "    ✓ Created: $ConfigFile" -ForegroundColor Green
         }
     } else {
-        Copy-Item -Force (Join-Path $ScriptDir "integrations\continue\config.json") $ConfigFile
+        Copy-Item -Force (Join-Path $ScriptDir "templates\continue\config.json") $ConfigFile
         Write-Host "    ✓ Created: $ConfigFile" -ForegroundColor Green
     }
 }
@@ -112,6 +135,9 @@ function Install-Codex() {
     }
 }
 
+# Cleanup duplicates first
+Cleanup-Legacy-Duplicates
+
 # Execution
 Write-Host "=================================================" -ForegroundColor Yellow
 Write-Host "Codebase Audit & Improve: Multi-Agent Installer" -ForegroundColor Yellow
@@ -125,5 +151,5 @@ if ($Target -eq "All" -or $Target -eq "Continue")    { Install-Continue }
 if ($Target -eq "All" -or $Target -eq "DeepSeek")    { Install-DeepSeek }
 if ($Target -eq "All" -or $Target -eq "Codex")       { Install-Codex }
 
-Write-Host "`nAll selected slash commands and skills have been successfully installed!" -ForegroundColor Green
+Write-Host "`nAll selected slash commands and skills have been cleanly installed without duplicates!" -ForegroundColor Green
 Write-Host "Ready for Antigravity, Claude Code, Cursor, Continue, DeepSeek Harness, and Codex." -ForegroundColor Yellow
