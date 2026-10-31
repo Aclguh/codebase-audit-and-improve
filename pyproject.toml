@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codebase-audit-and-improve"
+version = "1.0.0"
+description = "Universal multi-agent codebase health audit, planning, and atomic implementation workflow."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Aclguh"}
+]
+keywords = [
+    "codebase-audit",
+    "multi-agent",
+    "improvements",
+    "antigravity",
+    "claude-code",
+    "cursor",
+    "codex",
+    "code-quality"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Quality Assurance",
+]
+
+[project.urls]
+Homepage = "https://github.com/Aclguh/codebase-audit-and-improve"
+Repository = "https://github.com/Aclguh/codebase-audit-and-improve.git"
+
+[project.scripts]
+check-health = "scripts.check_health:main"
+track-progress = "scripts.track_progress:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
