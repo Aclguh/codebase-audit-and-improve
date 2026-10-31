@@ -135,9 +135,29 @@ def detect_stack(cwd):
         })
     
     # 3. Python
-    py_files = ["pyproject.toml", "setup.py", "requirements.txt", "Pipfile"]
+    py_files = [
+        "pyproject.toml", "setup.py", "setup.cfg", "requirements.txt",
+        "requirements-dev.txt", "Pipfile", "poetry.lock", "uv.lock",
+        "pdm.lock", "tox.ini", "environment.yml"
+    ]
     matched_py = [f for f in py_files if os.path.exists(os.path.join(cwd, f))]
-    if matched_py:
+    has_py_source = False
+    manifest_name = matched_py[0] if matched_py else None
+
+    if not matched_py:
+        has_root_py = bool(list(glob.glob(os.path.join(cwd, "*.py"))))
+        if has_root_py:
+            has_py_source = True
+            manifest_name = os.path.basename(list(glob.glob(os.path.join(cwd, "*.py")))[0])
+        else:
+            for candidate_dir in ["tests", "scripts", "src"]:
+                d_path = os.path.join(cwd, candidate_dir)
+                if os.path.isdir(d_path) and any(f.endswith(".py") for f in os.listdir(d_path)):
+                    has_py_source = True
+                    manifest_name = f"{candidate_dir}/"
+                    break
+
+    if matched_py or has_py_source:
         # Detect runner
         runner = "python -m"
         if os.path.exists(os.path.join(cwd, "poetry.lock")) and shutil.which("poetry"):
@@ -147,13 +167,17 @@ def detect_stack(cwd):
         elif os.path.exists(os.path.join(cwd, "pdm.lock")) and shutil.which("pdm"):
             runner = "pdm run"
             
+        has_tests_dir = os.path.isdir(os.path.join(cwd, "tests"))
+        unittest_cmd = f"{runner} unittest discover -s tests" if has_tests_dir else f"{runner} unittest discover"
+        unittest_cov_cmd = f"{runner} coverage run -m unittest discover -s tests" if has_tests_dir else f"{runner} coverage run -m unittest"
+
         lint_cmd = f"{runner} ruff check ." if shutil.which("ruff") else f"{runner} flake8"
-        test_cmd = f"{runner} pytest" if shutil.which("pytest") else f"{runner} unittest discover"
-        coverage_cmd = f"{runner} pytest --cov=." if shutil.which("pytest") else f"{runner} coverage run -m unittest"
+        test_cmd = f"{runner} pytest" if shutil.which("pytest") else unittest_cmd
+        coverage_cmd = f"{runner} pytest --cov=." if shutil.which("pytest") else unittest_cov_cmd
         
         stacks.append({
             "name": "Python",
-            "manifest": matched_py[0],
+            "manifest": manifest_name or "python",
             "lint_cmd": lint_cmd,
             "test_cmd": test_cmd,
             "coverage_cmd": coverage_cmd
@@ -265,6 +289,12 @@ def check_git_status(cwd):
         p_branch = subprocess.run(["git", "branch", "--show-current"], cwd=cwd, capture_output=True, text=True, check=True)
         branch = p_branch.stdout.strip()
         result["is_git"] = True
+        if not branch:
+            p_head = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=cwd, capture_output=True, text=True)
+            if p_head.returncode == 0 and p_head.stdout.strip():
+                branch = f"detached@{p_head.stdout.strip()}"
+            else:
+                branch = "HEAD (detached)"
         result["branch"] = branch
         result["is_protected_branch"] = branch.lower() in ("main", "master", "release", "prod", "production")
         
@@ -278,8 +308,8 @@ def check_git_status(cwd):
         p_remote = subprocess.run(["git", "remote", "get-url", "origin"], cwd=cwd, capture_output=True, text=True)
         if p_remote.returncode == 0:
             result["remote_origin"] = p_remote.stdout.strip()
-    except Exception:
-        pass
+    except Exception as e:
+        result["git_error"] = str(e)
         
     return result
 
