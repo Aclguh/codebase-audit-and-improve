@@ -37,9 +37,9 @@ def is_status_done(val):
     v = val.strip().lower()
     if re.search(r'\[[xX]\]', val):
         return True
-    if '✓' in val or '✔' in val:
+    if any(sym in val for sym in ('✓', '✔', '✅', '☑', '√')):
         return True
-    if v in ('done', 'completed', '已完成', '[x]', 'pass'):
+    if v in ('done', 'completed', '已完成', '[x]', 'pass', 'passed', 'finished', 'ok', 'resolved', 'fixed'):
         return True
     return False
 
@@ -73,11 +73,6 @@ def parse_improvements_file(filepath):
     tasks = []
     in_table = False
     col_map = {}
-    
-    # Generic checklist regex fallback: - [ ] OPT-01: description or - [ ] [P0] OPT-01 ...
-    list_pattern = re.compile(
-        r'-\s*\[([ xX])\]\s*(?:\*?\*?\[?(P\d+)\]?\*?\*?\s*[:：]?)?\s*\*?\*?([A-Za-z0-9_\-]+)\*?\*?\s*[:：]?\s*(.*)'
-    )
     
     for idx, line in enumerate(lines):
         line_clean = line.strip()
@@ -131,12 +126,31 @@ def parse_improvements_file(filepath):
             col_map = {}
             
         # 2. Parse Markdown Checklists
-        m_list = list_pattern.search(line_clean)
+        m_list = re.match(r'^[-*+]\s*\[([ xX])\]\s*(.+)$', line_clean)
         if m_list:
             is_done = m_list.group(1).strip().lower() == 'x'
-            priority = m_list.group(2).upper() if m_list.group(2) else "GENERAL"
-            task_id = m_list.group(3).strip()
-            name = m_list.group(4).strip()
+            rest = m_list.group(2).strip()
+
+            # Priority extraction: e.g. [P0], **[P0]**, **P0**, (P0)
+            priority = "GENERAL"
+            m_prio = re.search(r'\b(P\d+)\b', rest, re.IGNORECASE)
+            if m_prio:
+                priority = m_prio.group(1).upper()
+                rest = re.sub(r'[*_`\[(]*' + re.escape(m_prio.group(0)) + r'[*_`\])]*[:：\-\s]*', '', rest, count=1).strip()
+
+            # Task ID extraction: e.g. [OPT-01], **OPT-01**, OPT-01, TASK-01
+            task_id = None
+            m_id = re.search(r'\b([A-Za-z0-9_\-]+)\b', rest)
+            if m_id and any(c.isdigit() for c in m_id.group(1)):
+                task_id = m_id.group(1).upper()
+                rest = re.sub(r'[*_`\[(]*' + re.escape(m_id.group(0)) + r'[*_`\])]*[:：\-\s]*', '', rest, count=1).strip()
+            else:
+                task_id = f"OPT-{len(tasks)+1:02d}"
+
+            name = rest.strip()
+            if not name:
+                name = task_id
+
             tasks.append({
                 "line": idx + 1,
                 "priority": priority,
