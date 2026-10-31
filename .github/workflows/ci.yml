@@ -29,11 +29,20 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Run Unit Tests
-        run: python -m unittest discover tests
+      - name: Static Syntax Verification
+        run: python -m py_compile scripts/check_health.py scripts/track_progress.py tests/test_check_health.py tests/test_track_progress.py
 
-      - name: Verify Health Inspector Script
-        run: python scripts/check_health.py --json
+      - name: Run Unit Tests
+        run: python -m unittest discover
+
+      - name: Verify Health Inspector & Stack Self-Detection
+        run: |
+          python scripts/check_health.py --json
+          python -c "import subprocess, json; res = json.loads(subprocess.check_output(['python', 'scripts/check_health.py', '--json'])); assert any(s['name'] == 'Python' for s in res['detected_stacks']), 'Python stack must be detected'"
 
       - name: Verify Track Progress Script
         run: python scripts/track_progress.py examples/sample-improvements.md --json
+
+      - name: Verify Bash Script Syntax (Linux)
+        if: runner.os == 'Linux'
+        run: bash -n install.sh
