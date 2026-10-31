@@ -12,6 +12,10 @@ $UserHome = [System.Environment]::GetFolderPath([System.Environment+SpecialFolde
 $CurrentDir = Get-Location
 
 function Install-SkillFiles($DestinationDir, $SkillName) {
+    if ([string]::IsNullOrWhiteSpace($DestinationDir)) {
+        Write-Error "Invalid destination directory: DestinationDir is empty"
+        return
+    }
     if (Test-Path $DestinationDir) {
         Remove-Item -Recurse -Force $DestinationDir
     }
@@ -35,7 +39,7 @@ function Cleanup-Legacy-Duplicates() {
     $LegacyClaudeCmd = Join-Path $UserHome ".claude\commands"
     if (Test-Path (Join-Path $LegacyClaudeCmd "improve.md")) { Remove-Item -Force (Join-Path $LegacyClaudeCmd "improve.md") }
     if (Test-Path (Join-Path $LegacyClaudeCmd "improve-all.md")) { Remove-Item -Force (Join-Path $LegacyClaudeCmd "improve-all.md") }
-    if ((Test-Path $LegacyClaudeCmd) -and (Get-ChildItem $LegacyClaudeCmd).Count -eq 0) {
+    if ((Test-Path $LegacyClaudeCmd) -and (@(Get-ChildItem $LegacyClaudeCmd).Count -eq 0)) {
         Remove-Item -Recurse -Force $LegacyClaudeCmd -ErrorAction SilentlyContinue
     }
     
@@ -43,7 +47,7 @@ function Cleanup-Legacy-Duplicates() {
     $LegacyCursorCmd = Join-Path $UserHome ".cursor\commands"
     if (Test-Path (Join-Path $LegacyCursorCmd "improve.md")) { Remove-Item -Force (Join-Path $LegacyCursorCmd "improve.md") }
     if (Test-Path (Join-Path $LegacyCursorCmd "improve-all.md")) { Remove-Item -Force (Join-Path $LegacyCursorCmd "improve-all.md") }
-    if ((Test-Path $LegacyCursorCmd) -and (Get-ChildItem $LegacyCursorCmd).Count -eq 0) {
+    if ((Test-Path $LegacyCursorCmd) -and (@(Get-ChildItem $LegacyCursorCmd).Count -eq 0)) {
         Remove-Item -Recurse -Force $LegacyCursorCmd -ErrorAction SilentlyContinue
     }
 
@@ -145,9 +149,11 @@ function Install-Codex() {
     }
     # Ensure no duplicate copy in .codex/skills (Codex scans both, which causes 2x duplicates in Codex Desktop)
     $LegacyCodex = if ($Workspace) { Join-Path $CurrentDir ".codex\skills" } else { Join-Path $UserHome ".codex\skills" }
-    foreach ($Name in @("improve", "improve-all")) {
-        $Old = Join-Path $LegacyCodex $Name
-        if (Test-Path $Old) { Remove-Item -Recurse -Force $Old }
+    if (-not [string]::IsNullOrWhiteSpace($LegacyCodex) -and (Test-Path $LegacyCodex)) {
+        foreach ($Name in @("improve", "improve-all")) {
+            $Old = Join-Path $LegacyCodex $Name
+            if (Test-Path $Old) { Remove-Item -Recurse -Force $Old }
+        }
     }
 }
 
