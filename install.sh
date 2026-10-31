@@ -4,7 +4,7 @@
 # Deduplicated & clean: ensures each agent sees exactly ONE /improve and ONE /improve-all entry
 set -e
 
-TARGET="${1:-all}"
+TARGET="all"
 WORKSPACE=false
 
 for arg in "$@"; do
@@ -22,8 +22,12 @@ USER_HOME="${HOME}"
 install_skill_files() {
     local dest="$1"
     local skill_name="$2"
+    if [ -z "${dest}" ] || [ "${dest}" = "/" ]; then
+        echo "Error: Invalid destination path '${dest}'" >&2
+        return 1
+    fi
     mkdir -p "${dest}"
-    rm -rf "${dest}"/*
+    rm -rf "${dest:?}"/*
     cp -R "${SCRIPT_DIR}/references" "${dest}/"
     cp -R "${SCRIPT_DIR}/scripts" "${dest}/"
     rm -rf "${dest}/scripts/__pycache__"
@@ -39,16 +43,18 @@ install_skill_files() {
 
 cleanup_legacy_duplicates() {
     # Remove redundant legacy commands that cause duplicate slash commands in Claude Code
-    rm -f "${USER_HOME}/.claude/commands/improve.md" "${USER_HOME}/.claude/commands/improve-all.md"
-    rmdir "${USER_HOME}/.claude/commands" 2>/dev/null || true
+    if [ -n "${USER_HOME}" ] && [ "${USER_HOME}" != "/" ]; then
+        rm -f "${USER_HOME}/.claude/commands/improve.md" "${USER_HOME}/.claude/commands/improve-all.md"
+        rmdir "${USER_HOME}/.claude/commands" 2>/dev/null || true
 
-    # Remove global ~/.cursor/commands (which Claude Code auto-scans and duplicates)
-    rm -f "${USER_HOME}/.cursor/commands/improve.md" "${USER_HOME}/.cursor/commands/improve-all.md"
-    rmdir "${USER_HOME}/.cursor/commands" 2>/dev/null || true
+        # Remove global ~/.cursor/commands (which Claude Code auto-scans and duplicates)
+        rm -f "${USER_HOME}/.cursor/commands/improve.md" "${USER_HOME}/.cursor/commands/improve-all.md"
+        rmdir "${USER_HOME}/.cursor/commands" 2>/dev/null || true
 
-    # Remove duplicate ~/.codex/skills if ~/.agents/skills exists (Codex scans both roots, duplicating entries in Codex Desktop)
-    if [ -d "${USER_HOME}/.agents/skills/improve" ]; then
-        rm -rf "${USER_HOME}/.codex/skills/improve" "${USER_HOME}/.codex/skills/improve-all"
+        # Remove duplicate ~/.codex/skills if ~/.agents/skills exists (Codex scans both roots, duplicating entries in Codex Desktop)
+        if [ -d "${USER_HOME}/.agents/skills/improve" ]; then
+            rm -rf "${USER_HOME}/.codex/skills/improve" "${USER_HOME}/.codex/skills/improve-all"
+        fi
     fi
 }
 
@@ -153,7 +159,9 @@ install_codex() {
     else
         legacy_codex="${USER_HOME}/.codex/skills"
     fi
-    rm -rf "${legacy_codex}/improve" "${legacy_codex}/improve-all"
+    if [ -n "${legacy_codex}" ] && [ "${legacy_codex}" != "/" ] && [ -d "${legacy_codex}" ]; then
+        rm -rf "${legacy_codex}/improve" "${legacy_codex}/improve-all"
+    fi
 }
 
 # Run cleanup first
