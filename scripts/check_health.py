@@ -350,7 +350,7 @@ def add_to_gitignore(cwd):
 def run_baseline_command(cmd, cwd):
     """Execute a single diagnostic command and capture summary."""
     try:
-        p = subprocess.run(cmd, cwd=cwd, shell=True, capture_output=True, text=True, timeout=120)
+        p = subprocess.run(cmd, cwd=cwd, shell=True, capture_output=True, text=True, errors="replace", timeout=120)
         return {
             "cmd": cmd,
             "exit_code": p.returncode,
