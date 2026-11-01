@@ -58,6 +58,16 @@ function Cleanup-Legacy-Duplicates() {
         if (Test-Path (Join-Path $CodexSkills "improve")) { Remove-Item -Recurse -Force (Join-Path $CodexSkills "improve") }
         if (Test-Path (Join-Path $CodexSkills "improve-all")) { Remove-Item -Recurse -Force (Join-Path $CodexSkills "improve-all") }
     }
+
+    # Remove workspace legacy Claude commands if installing in workspace mode
+    if ($Workspace) {
+        $WsClaudeCmd = Join-Path $CurrentDir ".claude\commands"
+        if (Test-Path (Join-Path $WsClaudeCmd "improve.md")) { Remove-Item -Force (Join-Path $WsClaudeCmd "improve.md") }
+        if (Test-Path (Join-Path $WsClaudeCmd "improve-all.md")) { Remove-Item -Force (Join-Path $WsClaudeCmd "improve-all.md") }
+        if ((Test-Path $WsClaudeCmd) -and (@(Get-ChildItem $WsClaudeCmd).Count -eq 0)) {
+            Remove-Item -Recurse -Force $WsClaudeCmd -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 function Install-Antigravity() {

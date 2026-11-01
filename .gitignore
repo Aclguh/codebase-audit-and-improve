@@ -4,6 +4,10 @@ __pycache__/
 *$py.class
 *.so
 .pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.cover
 
 # Temporary audit tracking roadmap
 IMPROVEMENTS.md
