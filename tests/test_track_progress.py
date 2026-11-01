@@ -29,6 +29,11 @@ class TestTrackProgress(unittest.TestCase):
 
         self.assertTrue(track_progress.is_status_done("[x]"))
         self.assertTrue(track_progress.is_status_done("[X]"))
+        self.assertTrue(track_progress.is_status_done("[v]"))
+        self.assertTrue(track_progress.is_status_done("[V]"))
+        self.assertTrue(track_progress.is_status_done("[✓]"))
+        self.assertTrue(track_progress.is_status_done("[✔]"))
+        self.assertTrue(track_progress.is_status_done("[✅]"))
         self.assertTrue(track_progress.is_status_done("✓"))
         self.assertTrue(track_progress.is_status_done("✔"))
         self.assertTrue(track_progress.is_status_done("✅"))
@@ -40,6 +45,14 @@ class TestTrackProgress(unittest.TestCase):
         self.assertTrue(track_progress.is_status_done("finished"))
         self.assertTrue(track_progress.is_status_done("resolved"))
         self.assertTrue(track_progress.is_status_done("ok"))
+
+        # Status with commit hashes, PRs, and notes
+        self.assertTrue(track_progress.is_status_done("Done (commit 01fbd06)"))
+        self.assertTrue(track_progress.is_status_done("已完成 (PR #2)"))
+        self.assertTrue(track_progress.is_status_done("[x] c027ac2"))
+        self.assertTrue(track_progress.is_status_done("Passed (CI matrix)"))
+        self.assertTrue(track_progress.is_status_done("Completed via refactor"))
+        self.assertTrue(track_progress.is_status_done("closed"))
 
         self.assertFalse(track_progress.is_status_done("[ ]"))
         self.assertFalse(track_progress.is_status_done("待处理"))
@@ -84,6 +97,52 @@ class TestTrackProgress(unittest.TestCase):
         self.assertEqual(tasks[1]["id"], "OPT-11")
         self.assertFalse(tasks[1]["done"])
 
+    def test_table_priority_with_chinese_and_qualifiers(self):
+        content = """# Roadmap with qualifiers
+| 优先级 | 任务标识 | 任务名称 | 核心收益 | 状态 |
+| :---: | :---: | :--- | :--- | :---: |
+| **P0** (Blocker) | **OPT-01** | Fix Critical Crash | Stability | [x] c027ac2 |
+| P0 级 | OPT-02 | Patch Traversal | Security | [x] |
+| P1 紧急 | OPT-03 | Async Streaming | Performance | [ ] |
+| **P2** | OPT-04 | Refactor Class | Modularity | [ ] |
+"""
+        filepath = os.path.join(self.test_dir, "IMPROVEMENTS.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 4)
+        self.assertEqual(tasks[0]["priority"], "P0")
+        self.assertTrue(tasks[0]["done"])
+        self.assertEqual(tasks[1]["priority"], "P0")
+        self.assertTrue(tasks[1]["done"])
+        self.assertEqual(tasks[2]["priority"], "P1")
+        self.assertFalse(tasks[2]["done"])
+        self.assertEqual(tasks[3]["priority"], "P2")
+
+    def test_skip_non_task_tables_like_scorecards(self):
+        content = """# Document
+## Scorecard
+| 评估维度 | 评级 / 得分 (满分 5.0) | 核心现状与风险分析 |
+| :--- | :---: | :--- |
+| **架构设计 (Architecture)** | 4.6 / 5.0 | 分层清晰。 |
+| **性能与响应度 (Performance)** | 4.8 / 5.0 | 探测 Git 状态无延迟。 |
+
+## Tasks
+| 优先级 | 任务标识 | 任务名称 | 状态 |
+| :---: | :---: | :--- | :---: |
+| P0 | OPT-01 | Real task | [ ] |
+"""
+        filepath = os.path.join(self.test_dir, "IMPROVEMENTS.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 1)
+        self.assertEqual(tasks[0]["id"], "OPT-01")
+
     def test_checklist_parsing_variations(self):
         content = """# Checklist
 - [x] OPT-01: Fix bug
@@ -92,6 +151,9 @@ class TestTrackProgress(unittest.TestCase):
 - [x] **P1** - **OPT-04** Buffer overflow
 - [ ] Fix memory leak without id
 * [x] ✅ OPT-05: Unicode star bullet
+1. [ ] OPT-06: Numbered task one
+2. [x] [P0级] OPT-07: Numbered task two
+- [Table of Contents Link](#section)
 """
         filepath = os.path.join(self.test_dir, "IMPROVEMENTS.md")
         with open(filepath, "w", encoding="utf-8") as f:
@@ -99,7 +161,7 @@ class TestTrackProgress(unittest.TestCase):
 
         tasks, err = track_progress.parse_improvements_file(filepath)
         self.assertIsNone(err)
-        self.assertEqual(len(tasks), 6)
+        self.assertEqual(len(tasks), 8)
         self.assertTrue(tasks[0]["done"])
         self.assertEqual(tasks[0]["id"], "OPT-01")
         self.assertFalse(tasks[1]["done"])
@@ -112,6 +174,10 @@ class TestTrackProgress(unittest.TestCase):
         self.assertFalse(tasks[4]["done"])
         self.assertEqual(tasks[4]["name"], "Fix memory leak without id")
         self.assertTrue(tasks[5]["done"])
+        self.assertFalse(tasks[6]["done"])
+        self.assertEqual(tasks[6]["id"], "OPT-06")
+        self.assertTrue(tasks[7]["done"])
+        self.assertEqual(tasks[7]["priority"], "P0")
 
     def test_file_not_found(self):
         non_existent = os.path.join(self.test_dir, "missing.md")
