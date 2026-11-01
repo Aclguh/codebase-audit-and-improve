@@ -34,12 +34,18 @@ def is_status_done(val):
     """Determine if a status cell represents completion."""
     if not val:
         return False
-    v = val.strip().lower()
-    if re.search(r'\[[xX]\]', val):
+    # Direct brackets match: [x], [X], [v], [V], [✓], [✔], [✅], [☑], [√]
+    if re.search(r'\[[xXvV✓✔✅☑√]\]', val):
         return True
+    # Unicode and check symbols anywhere in cell
     if any(sym in val for sym in ('✓', '✔', '✅', '☑', '√')):
         return True
-    if v in ('done', 'completed', '已完成', '[x]', 'pass', 'passed', 'finished', 'ok', 'resolved', 'fixed'):
+    # Strip markdown markers
+    clean_v = clean_cell(val).lower()
+    # Check if cleaned text starts with standard completion keywords (even if followed by commit hash, PR, or note)
+    if re.match(r'^(?:done|completed|已完成|pass|passed|finished|ok|resolved|fixed|closed)\b', clean_v):
+        return True
+    if clean_v in ('[x]', '[v]', '已完成', '完成', '通过'):
         return True
     return False
 
@@ -48,6 +54,8 @@ def parse_header_columns(header_cells):
     col_map = {}
     for idx, cell in enumerate(header_cells):
         c = clean_cell(cell).lower()
+        if len(c) > 30:
+            continue
         if any(k in c for k in ['优先级', 'priority', 'level']):
             col_map['priority'] = idx
         elif any(k in c for k in ['标识', 'id', 'task id', '编号', 'opt']):
@@ -55,7 +63,7 @@ def parse_header_columns(header_cells):
         elif any(k in c for k in ['任务名称', '任务', 'task', 'name', 'title', '描述', 'description']):
             if 'id' not in col_map or col_map.get('id') != idx:
                 col_map['name'] = idx
-        elif any(k in c for k in ['状态', 'status', 'state', '进度', 'done']):
+        elif any(k in c for k in ['状态', 'status', 'state', '进度']):
             col_map['status'] = idx
         elif any(k in c for k in ['涉及文件', '文件', 'file', 'files', 'path']):
             col_map['files'] = idx
@@ -81,10 +89,23 @@ def parse_improvements_file(filepath):
         if line_clean.startswith("|") and line_clean.endswith("|"):
             raw_cells = [c.strip() for c in line_clean.split("|")[1:-1]]
             
+            # Check if this row is followed by a separator line (| :--- | :---: |)
+            is_followed_by_separator = False
+            if idx + 1 < len(lines):
+                next_clean = lines[idx + 1].strip()
+                if next_clean.startswith("|") and next_clean.endswith("|"):
+                    next_cells = [c.strip() for c in next_clean.split("|")[1:-1]]
+                    if next_cells and all(re.match(r'^:?-+:?$', c) for c in next_cells):
+                        is_followed_by_separator = True
+
             # Check if this is a table header
-            if not in_table or not col_map:
+            if is_followed_by_separator:
                 detected_map = parse_header_columns(raw_cells)
-                if 'status' in detected_map or ('id' in detected_map and 'priority' in detected_map):
+                if 'status' in detected_map and ('id' in detected_map or 'name' in detected_map or 'priority' in detected_map):
+                    col_map = detected_map
+                    in_table = True
+                    continue
+                elif 'id' in detected_map and 'priority' in detected_map and 'name' in detected_map:
                     col_map = detected_map
                     in_table = True
                     continue
@@ -126,9 +147,10 @@ def parse_improvements_file(filepath):
             col_map = {}
             
         # 2. Parse Markdown Checklists
-        m_list = re.match(r'^[-*+]\s*\[([ xX])\]\s*(.+)$', line_clean)
+        m_list = re.match(r'^(?:[-*+]|\d+\.)\s*\[([ xXvV✓✔✅☑√]|\s*)\](?!\()\s*(.+)$', line_clean)
         if m_list:
-            is_done = m_list.group(1).strip().lower() == 'x'
+            bracket_val = m_list.group(1).strip()
+            is_done = is_status_done(bracket_val) or is_status_done(f"[{bracket_val}]")
             rest = m_list.group(2).strip()
 
             # Priority extraction: e.g. [P0], **[P0]**, **P0**, (P0)
