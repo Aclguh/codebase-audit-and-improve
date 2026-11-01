@@ -126,7 +126,9 @@ def parse_improvements_file(filepath):
                     is_done = is_status_done(status_raw)
                     
                     task_id = clean_cell(raw_cells[id_idx]) if (id_idx is not None and id_idx < len(raw_cells)) else f"TASK-{len(tasks)+1:02d}"
-                    priority = clean_cell(raw_cells[prio_idx]).upper() if (prio_idx is not None and prio_idx < len(raw_cells)) else "P2"
+                    raw_prio = clean_cell(raw_cells[prio_idx]).upper() if (prio_idx is not None and prio_idx < len(raw_cells)) else "P2"
+                    m_prio = re.search(r'(?i)\b(P\d+)(?=[^\d]|$)', raw_prio)
+                    priority = m_prio.group(1).upper() if m_prio else "P2"
                     name = clean_cell(raw_cells[name_idx]) if (name_idx is not None and name_idx < len(raw_cells)) else ""
                     
                     if not name and len(raw_cells) > 2:
@@ -136,7 +138,7 @@ def parse_improvements_file(filepath):
                     if task_id or name:
                         tasks.append({
                             "line": idx + 1,
-                            "priority": priority if re.match(r'^P\d+$', priority) else "P2",
+                            "priority": priority,
                             "id": task_id if task_id else f"OPT-{len(tasks)+1:02d}",
                             "name": name,
                             "done": is_done
@@ -153,9 +155,9 @@ def parse_improvements_file(filepath):
             is_done = is_status_done(bracket_val) or is_status_done(f"[{bracket_val}]")
             rest = m_list.group(2).strip()
 
-            # Priority extraction: e.g. [P0], **[P0]**, **P0**, (P0)
+            # Priority extraction: e.g. [P0], **[P0]**, **P0**, (P0), [P0级]
             priority = "GENERAL"
-            m_prio = re.search(r'\b(P\d+)\b', rest, re.IGNORECASE)
+            m_prio = re.search(r'(?i)\b(P\d+)(?=[^\d]|$)', rest)
             if m_prio:
                 priority = m_prio.group(1).upper()
                 rest = re.sub(r'[*_`\[(]*' + re.escape(m_prio.group(0)) + r'[*_`\])]*[:：\-\s]*', '', rest, count=1).strip()
