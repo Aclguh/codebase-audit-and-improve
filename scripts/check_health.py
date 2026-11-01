@@ -11,6 +11,7 @@ import json
 import subprocess
 import shutil
 import glob
+import fnmatch
 from pathlib import Path
 
 # Ensure UTF-8 output encoding across all operating systems and Windows CI runners
@@ -171,7 +172,15 @@ def detect_stack(cwd):
         unittest_cmd = f"{runner} unittest discover -s tests" if has_tests_dir else f"{runner} unittest discover"
         unittest_cov_cmd = f"{runner} coverage run -m unittest discover -s tests" if has_tests_dir else f"{runner} coverage run -m unittest"
 
-        lint_cmd = f"{runner} ruff check ." if shutil.which("ruff") else f"{runner} flake8"
+        has_ruff = shutil.which("ruff") is not None
+        has_flake8 = shutil.which("flake8") is not None
+        if has_ruff:
+            lint_cmd = f"{runner} ruff check ."
+        elif has_flake8:
+            lint_cmd = f"{runner} flake8"
+        else:
+            lint_cmd = f"{runner} compileall -q ."
+
         test_cmd = f"{runner} pytest" if shutil.which("pytest") else unittest_cmd
         coverage_cmd = f"{runner} pytest --cov=." if shutil.which("pytest") else unittest_cov_cmd
         
@@ -280,15 +289,19 @@ def check_git_status(cwd):
         "remote_origin": None
     }
     
-    git_dir = os.path.join(cwd, ".git")
-    if not (os.path.exists(git_dir) or shutil.which("git")):
+    if not shutil.which("git"):
+        result["git_error"] = "git executable not found in PATH"
         return result
         
     try:
+        p_check = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], cwd=cwd, capture_output=True, text=True)
+        if p_check.returncode != 0:
+            return result
+        result["is_git"] = True
+
         # Check branch
         p_branch = subprocess.run(["git", "branch", "--show-current"], cwd=cwd, capture_output=True, text=True, check=True)
         branch = p_branch.stdout.strip()
-        result["is_git"] = True
         if not branch:
             p_head = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=cwd, capture_output=True, text=True)
             if p_head.returncode == 0 and p_head.stdout.strip():
@@ -332,12 +345,17 @@ def check_gitignore(cwd):
         line_clean = line.lstrip("/")
         if line_clean.lower() in ("improvements.md", "*.md"):
             return True, "Found explicit ignore rule", gitignore_path
+        if fnmatch.fnmatch("improvements.md", line_clean.lower()):
+            return True, "Found matching ignore pattern", gitignore_path
             
     return False, "IMPROVEMENTS.md not ignored", gitignore_path
 
 def add_to_gitignore(cwd):
     """Safely append IMPROVEMENTS.md to .gitignore."""
-    gitignore_path = os.path.join(cwd, ".gitignore")
+    abs_cwd = os.path.abspath(cwd)
+    gitignore_path = os.path.abspath(os.path.join(abs_cwd, ".gitignore"))
+    if not gitignore_path.startswith(abs_cwd):
+        return False
     entry = "\n# Temporary audit and improvement roadmap\nIMPROVEMENTS.md\n"
     if os.path.exists(gitignore_path):
         with open(gitignore_path, "a", encoding="utf-8") as f:

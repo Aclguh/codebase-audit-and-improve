@@ -9,7 +9,16 @@ WORKSPACE=false
 
 for arg in "$@"; do
     case "$arg" in
-        --workspace) WORKSPACE=true ;;
+        -h|--help)
+            echo "Usage: ./install.sh [options] [target]"
+            echo "Targets: antigravity, claude, cursor, continue, deepseek, codex, all (default: all)"
+            echo "Options:"
+            echo "  --workspace, -w    Install into current workspace instead of global config"
+            echo "  --target=<target>  Specify agent target"
+            echo "  -h, --help         Show this help message"
+            exit 0
+            ;;
+        --workspace|-w) WORKSPACE=true ;;
         --target=*) TARGET="${arg#*=}" ;;
         antigravity|claude|cursor|continue|deepseek|codex|all) TARGET="$arg" ;;
     esac
@@ -55,6 +64,12 @@ cleanup_legacy_duplicates() {
         if [ -d "${USER_HOME}/.agents/skills/improve" ]; then
             rm -rf "${USER_HOME}/.codex/skills/improve" "${USER_HOME}/.codex/skills/improve-all"
         fi
+    fi
+
+    # Remove workspace legacy Claude commands if installing in workspace mode
+    if [ "$WORKSPACE" = true ]; then
+        rm -f "${CURRENT_DIR}/.claude/commands/improve.md" "${CURRENT_DIR}/.claude/commands/improve-all.md"
+        rmdir "${CURRENT_DIR}/.claude/commands" 2>/dev/null || true
     fi
 }
 

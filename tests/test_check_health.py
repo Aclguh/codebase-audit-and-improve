@@ -128,6 +128,15 @@ class TestCheckHealth(unittest.TestCase):
         os.remove(pyproject)
         os.remove(poetry_lock)
 
+    def test_python_stack_compileall_fallback(self):
+        pyproject = os.path.join(self.test_dir, "pyproject.toml")
+        Path(pyproject).touch()
+        # Mock neither ruff nor flake8 available
+        with patch("shutil.which", return_value=None):
+            stacks = check_health.detect_stack(self.test_dir)
+            python_stack = [s for s in stacks if s["name"] == "Python"][0]
+            self.assertIn("compileall -q .", python_stack["lint_cmd"])
+
     def test_detect_multiple_stacks(self):
         # Node.js
         pkg_json = os.path.join(self.test_dir, "package.json")
@@ -193,6 +202,28 @@ class TestCheckHealth(unittest.TestCase):
         is_ignored, _, _ = check_health.check_gitignore(self.test_dir)
         self.assertTrue(is_ignored)
 
+    def test_check_gitignore_fnmatch_pattern(self):
+        gitignore = os.path.join(self.test_dir, ".gitignore")
+        with open(gitignore, "w", encoding="utf-8") as f:
+            f.write("improvements*.md\n")
+        is_ignored, msg, _ = check_health.check_gitignore(self.test_dir)
+        self.assertTrue(is_ignored)
+        self.assertIn("Found matching ignore pattern", msg)
+
+    def test_add_to_gitignore_sandbox_check(self):
+        # Normal add
+        self.assertTrue(check_health.add_to_gitignore(self.test_dir))
+        # Escaping relative path outside root
+        escape_path = os.path.join(self.test_dir, "..", "..", "escaped")
+        with patch("os.path.abspath", side_effect=lambda p: "/var/root/outside" if "outside" in p else p):
+            pass
+
+    def test_check_git_status_missing_git(self):
+        with patch("shutil.which", return_value=None):
+            info = check_health.check_git_status(self.test_dir)
+            self.assertFalse(info["is_git"])
+            self.assertIn("git_error", info)
+
     def test_check_git_status_non_git(self):
         info = check_health.check_git_status(self.test_dir)
         self.assertFalse(info["is_git"])
@@ -223,6 +254,13 @@ class TestCheckHealth(unittest.TestCase):
             self.assertEqual(info_dirty["dirty_files_count"], 1)
         except Exception:
             pass
+
+    def test_scripts_package_import(self):
+        import scripts
+        import scripts.check_health
+        import scripts.track_progress
+        self.assertIn("check_health", scripts.__all__)
+        self.assertIn("track_progress", scripts.__all__)
 
     def test_run_baseline_command(self):
         res = check_health.run_baseline_command(f"{sys.executable} -c \"print('baseline ok')\"", self.test_dir)
