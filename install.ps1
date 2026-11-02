@@ -35,6 +35,8 @@ function Install-SkillFiles($DestinationDir, $SkillName) {
 }
 
 function Cleanup-Legacy-Duplicates() {
+    # Guard against empty or whitespace user profile path
+    if (-not [string]::IsNullOrWhiteSpace($UserHome) -and ($UserHome -ne "/") -and ($UserHome -ne "\")) {
     # Remove redundant legacy commands that cause duplicate slash commands in Claude Code
     $LegacyClaudeCmd = Join-Path $UserHome ".claude\commands"
     if (Test-Path (Join-Path $LegacyClaudeCmd "improve.md")) { Remove-Item -Force (Join-Path $LegacyClaudeCmd "improve.md") }
@@ -59,8 +61,10 @@ function Cleanup-Legacy-Duplicates() {
         if (Test-Path (Join-Path $CodexSkills "improve-all")) { Remove-Item -Recurse -Force (Join-Path $CodexSkills "improve-all") }
     }
 
+    }
+
     # Remove workspace legacy Claude commands if installing in workspace mode
-    if ($Workspace) {
+    if ($Workspace -and -not [string]::IsNullOrWhiteSpace($CurrentDir)) {
         $WsClaudeCmd = Join-Path $CurrentDir ".claude\commands"
         if (Test-Path (Join-Path $WsClaudeCmd "improve.md")) { Remove-Item -Force (Join-Path $WsClaudeCmd "improve.md") }
         if (Test-Path (Join-Path $WsClaudeCmd "improve-all.md")) { Remove-Item -Force (Join-Path $WsClaudeCmd "improve-all.md") }
@@ -92,7 +96,7 @@ function Install-Claude() {
 
 function Install-Cursor() {
     Write-Host "[+] Installing for Cursor IDE..." -ForegroundColor Cyan
-    if ($Workspace) {
+    if ($Workspace -and -not [string]::IsNullOrWhiteSpace($CurrentDir)) {
         $CmdBase = Join-Path $CurrentDir ".cursor\commands"
         New-Item -ItemType Directory -Path $CmdBase -Force | Out-Null
         Copy-Item -Force (Join-Path $ScriptDir "templates\cursor\improve.md") (Join-Path $CmdBase "improve.md")

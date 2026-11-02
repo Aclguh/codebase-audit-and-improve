@@ -354,7 +354,12 @@ def add_to_gitignore(cwd):
     """Safely append IMPROVEMENTS.md to .gitignore."""
     abs_cwd = os.path.abspath(cwd)
     gitignore_path = os.path.abspath(os.path.join(abs_cwd, ".gitignore"))
-    if not gitignore_path.startswith(abs_cwd):
+    # Strictly ensure destination file resides directly within target workspace
+    try:
+        if os.path.dirname(gitignore_path) != abs_cwd or Path(gitignore_path).resolve().parent != Path(abs_cwd).resolve():
+            return False
+    except Exception:
+        return False
         return False
     entry = "\n# Temporary audit and improvement roadmap\nIMPROVEMENTS.md\n"
     if os.path.exists(gitignore_path):
