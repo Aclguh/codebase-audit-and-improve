@@ -40,6 +40,11 @@ Repository = "https://github.com/Aclguh/codebase-audit-and-improve.git"
 check-health = "scripts.check_health:main"
 track-progress = "scripts.track_progress:main"
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["scripts*"]
+exclude = ["tests*", "docs*", "templates*", "examples*", "references*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
