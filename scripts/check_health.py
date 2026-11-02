@@ -276,6 +276,17 @@ def detect_stack(cwd):
             "coverage_cmd": "bundle exec rspec"
         })
         
+    # 11. Swift (Swift Package Manager / Xcode)
+    if os.path.exists(os.path.join(cwd, "Package.swift")):
+        has_swiftlint = shutil.which("swiftlint") is not None
+        stacks.append({
+            "name": "Swift (SPM)",
+            "manifest": "Package.swift",
+            "lint_cmd": "swiftlint" if has_swiftlint else "swift package describe",
+            "test_cmd": "swift test",
+            "coverage_cmd": "swift test --enable-code-coverage"
+        })
+        
     return stacks
 
 def check_git_status(cwd):
@@ -294,16 +305,16 @@ def check_git_status(cwd):
         return result
         
     try:
-        p_check = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], cwd=cwd, capture_output=True, text=True)
+        p_check = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], cwd=cwd, capture_output=True, text=True, timeout=15)
         if p_check.returncode != 0:
             return result
         result["is_git"] = True
 
         # Check branch
-        p_branch = subprocess.run(["git", "branch", "--show-current"], cwd=cwd, capture_output=True, text=True, check=True)
+        p_branch = subprocess.run(["git", "branch", "--show-current"], cwd=cwd, capture_output=True, text=True, check=True, timeout=15)
         branch = p_branch.stdout.strip()
         if not branch:
-            p_head = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=cwd, capture_output=True, text=True)
+            p_head = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=cwd, capture_output=True, text=True, timeout=15)
             if p_head.returncode == 0 and p_head.stdout.strip():
                 branch = f"detached@{p_head.stdout.strip()}"
             else:
@@ -312,15 +323,25 @@ def check_git_status(cwd):
         result["is_protected_branch"] = branch.lower() in ("main", "master", "release", "prod", "production")
         
         # Check dirty working tree
-        p_status = subprocess.run(["git", "status", "--porcelain"], cwd=cwd, capture_output=True, text=True, check=True)
+        p_status = subprocess.run(["git", "status", "--porcelain"], cwd=cwd, capture_output=True, text=True, check=True, timeout=15)
         dirty_lines = [line for line in p_status.stdout.splitlines() if line.strip()]
         result["is_clean"] = len(dirty_lines) == 0
         result["dirty_files_count"] = len(dirty_lines)
         
         # Check remote origin
-        p_remote = subprocess.run(["git", "remote", "get-url", "origin"], cwd=cwd, capture_output=True, text=True)
-        if p_remote.returncode == 0:
+        p_remote = subprocess.run(["git", "remote", "get-url", "origin"], cwd=cwd, capture_output=True, text=True, timeout=15)
+        if p_remote.returncode == 0 and p_remote.stdout.strip():
             result["remote_origin"] = p_remote.stdout.strip()
+
+        else:
+            p_remotes = subprocess.run(["git", "remote"], cwd=cwd, capture_output=True, text=True, timeout=15)
+            if p_remotes.returncode == 0 and p_remotes.stdout.strip():
+                first_remote = p_remotes.stdout.strip().splitlines()[0].strip()
+                p_first = subprocess.run(["git", "remote", "get-url", first_remote], cwd=cwd, capture_output=True, text=True, timeout=15)
+                if p_first.returncode == 0 and p_first.stdout.strip():
+                    result["remote_origin"] = p_first.stdout.strip()
+
+
     except Exception as e:
         result["git_error"] = str(e)
         
@@ -414,11 +435,15 @@ def main():
         
     baseline_results = []
     if run_baseline and stacks:
-        primary_stack = stacks[0]
-        if primary_stack.get("lint_cmd"):
-            baseline_results.append(run_baseline_command(primary_stack["lint_cmd"], cwd))
-        if primary_stack.get("test_cmd"):
-            baseline_results.append(run_baseline_command(primary_stack["test_cmd"], cwd))
+        for primary_stack in stacks:
+            if primary_stack.get("lint_cmd"):
+                res = run_baseline_command(primary_stack["lint_cmd"], cwd)
+                res["stack"] = primary_stack["name"]
+                baseline_results.append(res)
+            if primary_stack.get("test_cmd"):
+                res = run_baseline_command(primary_stack["test_cmd"], cwd)
+                res["stack"] = primary_stack["name"]
+                baseline_results.append(res)
 
     data = {
         "working_directory": cwd,
@@ -484,7 +509,8 @@ def main():
         print("\n[+] Baseline Command Execution:")
         for res in baseline_results:
             status_text = "PASS" if res.get("success") else f"FAIL (Exit code {res.get('exit_code')})"
-            print(f"  - `{res['cmd']}`: {status_text}")
+            stack_label = f" [{res['stack']}]" if "stack" in res else ""
+            print(f"  - `{res['cmd']}`{stack_label}: {status_text}")
 
     print("\n" + "=" * 65)
 
