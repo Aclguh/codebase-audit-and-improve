@@ -4,10 +4,23 @@
 param (
     [ValidateSet("Antigravity", "Claude", "Cursor", "Continue", "DeepSeek", "Codex", "All")]
     [string]$Target = "All",
-    [switch]$Workspace
+    [Alias("w")]
+    [switch]$Workspace,
+    [Alias("h")]
+    [switch]$Help
 )
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+if ($Help) {
+    Write-Host "Usage: .\install.ps1 [-Target <Antigravity|Claude|Cursor|Continue|DeepSeek|Codex|All>] [-Workspace] [-Help]"
+    Write-Host "Targets: Antigravity, Claude, Cursor, Continue, DeepSeek, Codex, All (default: All)"
+    Write-Host "Options:"
+    Write-Host "  -Workspace, -w     Install into current workspace instead of global config"
+    Write-Host "  -Target <name>     Specify agent target"
+    Write-Host "  -Help, -h          Show this help message"
+    exit 0
+}
 $UserHome = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::UserProfile)
 $CurrentDir = Get-Location
 
@@ -35,6 +48,8 @@ function Install-SkillFiles($DestinationDir, $SkillName) {
 }
 
 function Cleanup-Legacy-Duplicates() {
+    # Guard against empty or whitespace user profile path
+    if (-not [string]::IsNullOrWhiteSpace($UserHome) -and ($UserHome -ne "/") -and ($UserHome -ne "\")) {
     # Remove redundant legacy commands that cause duplicate slash commands in Claude Code
     $LegacyClaudeCmd = Join-Path $UserHome ".claude\commands"
     if (Test-Path (Join-Path $LegacyClaudeCmd "improve.md")) { Remove-Item -Force (Join-Path $LegacyClaudeCmd "improve.md") }
@@ -59,8 +74,10 @@ function Cleanup-Legacy-Duplicates() {
         if (Test-Path (Join-Path $CodexSkills "improve-all")) { Remove-Item -Recurse -Force (Join-Path $CodexSkills "improve-all") }
     }
 
+    }
+
     # Remove workspace legacy Claude commands if installing in workspace mode
-    if ($Workspace) {
+    if ($Workspace -and -not [string]::IsNullOrWhiteSpace($CurrentDir)) {
         $WsClaudeCmd = Join-Path $CurrentDir ".claude\commands"
         if (Test-Path (Join-Path $WsClaudeCmd "improve.md")) { Remove-Item -Force (Join-Path $WsClaudeCmd "improve.md") }
         if (Test-Path (Join-Path $WsClaudeCmd "improve-all.md")) { Remove-Item -Force (Join-Path $WsClaudeCmd "improve-all.md") }
@@ -76,7 +93,7 @@ function Install-Antigravity() {
     foreach ($Name in @("improve", "improve-all")) {
         $Dest = Join-Path $BaseDir $Name
         Install-SkillFiles $Dest $Name
-        Write-Host "    ✓ Registered Antigravity Skill: $Dest" -ForegroundColor Green
+        Write-Host "    + Registered Antigravity Skill: $Dest" -ForegroundColor Green
     }
 }
 
@@ -86,25 +103,25 @@ function Install-Claude() {
     foreach ($Name in @("improve", "improve-all")) {
         $Dest = Join-Path $SkillBase $Name
         Install-SkillFiles $Dest $Name
-        Write-Host "    ✓ Registered Claude Skill: $Dest" -ForegroundColor Green
+        Write-Host "    + Registered Claude Skill: $Dest" -ForegroundColor Green
     }
 }
 
 function Install-Cursor() {
     Write-Host "[+] Installing for Cursor IDE..." -ForegroundColor Cyan
-    if ($Workspace) {
+    if ($Workspace -and -not [string]::IsNullOrWhiteSpace($CurrentDir)) {
         $CmdBase = Join-Path $CurrentDir ".cursor\commands"
         New-Item -ItemType Directory -Path $CmdBase -Force | Out-Null
         Copy-Item -Force (Join-Path $ScriptDir "templates\cursor\improve.md") (Join-Path $CmdBase "improve.md")
         Copy-Item -Force (Join-Path $ScriptDir "templates\cursor\improve-all.md") (Join-Path $CmdBase "improve-all.md")
-        Write-Host "    ✓ Registered Workspace Cursor Commands in: $CmdBase" -ForegroundColor Green
+        Write-Host "    + Registered Workspace Cursor Commands in: $CmdBase" -ForegroundColor Green
     } else {
         # Global Cursor rules
         $RulesBase = Join-Path $UserHome ".cursor\rules"
         New-Item -ItemType Directory -Path $RulesBase -Force | Out-Null
         Copy-Item -Force (Join-Path $ScriptDir "templates\cursor\improve.md") (Join-Path $RulesBase "improve.mdc")
         Copy-Item -Force (Join-Path $ScriptDir "templates\cursor\improve-all.md") (Join-Path $RulesBase "improve-all.mdc")
-        Write-Host "    ✓ Registered Global Cursor Rules in: $RulesBase" -ForegroundColor Green
+        Write-Host "    + Registered Global Cursor Rules in: $RulesBase" -ForegroundColor Green
     }
 }
 
@@ -126,14 +143,14 @@ function Install-Continue() {
             $Filtered += $SourceCommands
             $ExistingJson.customCommands = $Filtered
             $ExistingJson | ConvertTo-Json -Depth 10 | Set-Content $ConfigFile -Encoding UTF8
-            Write-Host "    ✓ Merged into: $ConfigFile" -ForegroundColor Green
+            Write-Host "    + Merged into: $ConfigFile" -ForegroundColor Green
         } catch {
             Copy-Item -Force (Join-Path $ScriptDir "templates\continue\config.json") $ConfigFile
-            Write-Host "    ✓ Created: $ConfigFile" -ForegroundColor Green
+            Write-Host "    + Created: $ConfigFile" -ForegroundColor Green
         }
     } else {
         Copy-Item -Force (Join-Path $ScriptDir "templates\continue\config.json") $ConfigFile
-        Write-Host "    ✓ Created: $ConfigFile" -ForegroundColor Green
+        Write-Host "    + Created: $ConfigFile" -ForegroundColor Green
     }
 }
 
@@ -143,7 +160,7 @@ function Install-DeepSeek() {
     foreach ($Name in @("improve", "improve-all")) {
         $Dest = Join-Path $BaseDir $Name
         Install-SkillFiles $Dest $Name
-        Write-Host "    ✓ Registered DeepSeek Harness Skill: $Dest" -ForegroundColor Green
+        Write-Host "    + Registered DeepSeek Harness Skill: $Dest" -ForegroundColor Green
     }
 }
 
@@ -155,7 +172,7 @@ function Install-Codex() {
     foreach ($Name in @("improve", "improve-all")) {
         $Dest = Join-Path $BaseDir $Name
         Install-SkillFiles $Dest $Name
-        Write-Host "    ✓ Registered Codex Skill (via .agents/skills): $Dest" -ForegroundColor Green
+        Write-Host "    + Registered Codex Skill (via .agents/skills): $Dest" -ForegroundColor Green
     }
     # Ensure no duplicate copy in .codex/skills (Codex scans both, which causes 2x duplicates in Codex Desktop)
     $LegacyCodex = if ($Workspace) { Join-Path $CurrentDir ".codex\skills" } else { Join-Path $UserHome ".codex\skills" }

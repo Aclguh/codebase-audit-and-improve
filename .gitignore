@@ -1,13 +1,24 @@
-# Python artifacts
+# Python artifacts & caches
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
 .coverage
 .coverage.*
 htmlcov/
 *.cover
+dist/
+build/
+*.egg-info/
+
+# Local multi-agent workspace artifacts & worktrees
+.claude/worktrees/
+.agents/
+.cursor/commands/
+.continue/
 
 # Temporary audit tracking roadmap
 IMPROVEMENTS.md

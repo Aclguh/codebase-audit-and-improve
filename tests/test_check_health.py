@@ -306,5 +306,69 @@ class TestCheckHealth(unittest.TestCase):
         finally:
             sys.argv = old_argv
 
+    def test_scripts_submodule_attributes(self):
+        import scripts
+        self.assertTrue(hasattr(scripts, "check_health"))
+        self.assertTrue(hasattr(scripts, "track_progress"))
+
+    def test_add_to_gitignore_prefix_overlap_defense(self):
+        sub_dir = os.path.join(self.test_dir, "proj")
+        os.makedirs(sub_dir, exist_ok=True)
+        outside_sibling = os.path.join(self.test_dir, "proj_evil", ".gitignore")
+        with patch("os.path.join", return_value=outside_sibling):
+            res = check_health.add_to_gitignore(sub_dir)
+            self.assertFalse(res)
+
+    def test_detect_swift_stack(self):
+        swift_pkg = os.path.join(self.test_dir, "Package.swift")
+        Path(swift_pkg).touch()
+        stacks = check_health.detect_stack(self.test_dir)
+        swift_stacks = [s for s in stacks if s["name"] == "Swift (SPM)"]
+        self.assertTrue(len(swift_stacks) > 0)
+        self.assertEqual(swift_stacks[0]["manifest"], "Package.swift")
+        self.assertEqual(swift_stacks[0]["test_cmd"], "swift test")
+        self.assertIn("coverage", swift_stacks[0]["coverage_cmd"])
+
+    def test_check_git_status_remote_fallback(self):
+        def fake_run(cmd, *args, **kwargs):
+            cmd_str = " ".join(cmd)
+            if "rev-parse --is-inside-work-tree" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="true\n")
+            if "branch --show-current" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="feature/demo\n")
+            if "status --porcelain" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="")
+            if "remote get-url origin" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="error")
+            if cmd == ["git", "remote"]:
+                return subprocess.CompletedProcess(cmd, 0, stdout="upstream\norigin\n")
+            if "remote get-url upstream" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="https://github.com/org/repo.git\n")
+            return subprocess.CompletedProcess(cmd, 0, stdout="")
+
+        with patch("shutil.which", return_value="/usr/bin/git"), patch("subprocess.run", side_effect=fake_run):
+            info = check_health.check_git_status(self.test_dir)
+            self.assertTrue(info["is_git"])
+            self.assertEqual(info["remote_origin"], "https://github.com/org/repo.git")
+
+    def test_check_git_status_detached_head_detection(self):
+        def fake_run(cmd, *args, **kwargs):
+            cmd_str = " ".join(cmd)
+            if "rev-parse --is-inside-work-tree" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="true\n")
+            if "branch --show-current" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="\n")
+            if "rev-parse --short HEAD" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="deadbeef\n")
+            if "status --porcelain" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="")
+            if "remote get-url origin" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="https://github.com/test/repo\n")
+            return subprocess.CompletedProcess(cmd, 0, stdout="")
+
+        with patch("shutil.which", return_value="/usr/bin/git"), patch("subprocess.run", side_effect=fake_run):
+            info = check_health.check_git_status(self.test_dir)
+            self.assertEqual(info["branch"], "detached@deadbeef")
+
 if __name__ == "__main__":
     unittest.main()
