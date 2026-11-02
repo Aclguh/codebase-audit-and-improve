@@ -268,5 +268,67 @@ class TestTrackProgress(unittest.TestCase):
         finally:
             sys.argv = old_argv
 
+    def test_extended_status_done_variations(self):
+        self.assertTrue(track_progress.is_status_done("Merged (#3)"))
+        self.assertTrue(track_progress.is_status_done("merged"))
+        self.assertTrue(track_progress.is_status_done("Complete"))
+        self.assertTrue(track_progress.is_status_done("complete"))
+        self.assertTrue(track_progress.is_status_done("Success"))
+        self.assertTrue(track_progress.is_status_done("success"))
+        self.assertTrue(track_progress.is_status_done("已解决"))
+        self.assertTrue(track_progress.is_status_done("已解决: 修复偶发崩溃"))
+        self.assertTrue(track_progress.is_status_done("已修复 (PR #10)"))
+        self.assertTrue(track_progress.is_status_done("已实现"))
+        self.assertTrue(track_progress.is_status_done("完成 (feat: cache)"))
+
+    def test_checklist_number_words_not_task_id(self):
+        content = """# Checklist with Technical Terms
+- [ ] Base64 encoding support
+- [ ] OAuth2 token verification
+- [ ] Win32 API compatibility
+- [ ] IPv6 socket binding
+- [x] [OPT-05] Real explicit task
+"""
+        filepath = os.path.join(self.test_dir, "IMPROVEMENTS.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 5)
+        self.assertNotEqual(tasks[0]["id"], "BASE64")
+        self.assertEqual(tasks[0]["name"], "Base64 encoding support")
+        self.assertNotEqual(tasks[1]["id"], "OAUTH2")
+        self.assertEqual(tasks[1]["name"], "OAuth2 token verification")
+        self.assertNotEqual(tasks[2]["id"], "WIN32")
+        self.assertEqual(tasks[2]["name"], "Win32 API compatibility")
+        self.assertNotEqual(tasks[3]["id"], "IPV6")
+        self.assertEqual(tasks[3]["name"], "IPv6 socket binding")
+        self.assertEqual(tasks[4]["id"], "OPT-05")
+
+    def test_reordered_table_headers_with_aliases(self):
+        content = """# Header Aliases Table
+| Severity | Action | Progress | Impact |
+| :---: | :--- | :---: | :--- |
+| P1 | Modernize logging system | [x] | Observability |
+| P2 | Enhance test coverage | [ ] | Quality |
+"""
+        filepath = os.path.join(self.test_dir, "IMPROVEMENTS.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 2)
+        self.assertEqual(tasks[0]["priority"], "P1")
+        self.assertEqual(tasks[0]["name"], "Modernize logging system")
+        self.assertTrue(tasks[0]["done"])
+        self.assertEqual(tasks[1]["priority"], "P2")
+        self.assertEqual(tasks[1]["name"], "Enhance test coverage")
+        self.assertFalse(tasks[1]["done"])
+
+    def test_clean_cell_strikethrough(self):
+        self.assertEqual(track_progress.clean_cell("~~OPT-01~~"), "OPT-01")
+
 if __name__ == "__main__":
     unittest.main()
