@@ -4,10 +4,23 @@
 param (
     [ValidateSet("Antigravity", "Claude", "Cursor", "Continue", "DeepSeek", "Codex", "All")]
     [string]$Target = "All",
-    [switch]$Workspace
+    [Alias("w")]
+    [switch]$Workspace,
+    [Alias("h")]
+    [switch]$Help
 )
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+if ($Help) {
+    Write-Host "Usage: .\install.ps1 [-Target <Antigravity|Claude|Cursor|Continue|DeepSeek|Codex|All>] [-Workspace] [-Help]"
+    Write-Host "Targets: Antigravity, Claude, Cursor, Continue, DeepSeek, Codex, All (default: All)"
+    Write-Host "Options:"
+    Write-Host "  -Workspace, -w     Install into current workspace instead of global config"
+    Write-Host "  -Target <name>     Specify agent target"
+    Write-Host "  -Help, -h          Show this help message"
+    exit 0
+}
 $UserHome = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::UserProfile)
 $CurrentDir = Get-Location
 
