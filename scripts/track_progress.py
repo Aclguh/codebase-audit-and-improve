@@ -27,7 +27,7 @@ def clean_cell(text):
     if not text:
         return ""
     cleaned = text.strip()
-    cleaned = re.sub(r'[*`_]', '', cleaned)
+    cleaned = re.sub(r'[*`_~]', '', cleaned)
     return cleaned.strip()
 
 def is_status_done(val):
@@ -43,9 +43,13 @@ def is_status_done(val):
     # Strip markdown markers
     clean_v = clean_cell(val).lower()
     # Check if cleaned text starts with standard completion keywords (even if followed by commit hash, PR, or note)
-    if re.match(r'^(?:done|completed|已完成|pass|passed|finished|ok|resolved|fixed|closed)\b', clean_v):
+    if re.match(r'^(?:done|completed|complete|pass|passed|finished|ok|resolved|fixed|closed|merged|success)\b', clean_v):
         return True
-    if clean_v in ('[x]', '[v]', '已完成', '完成', '通过'):
+    # Chinese completion prefixes (handles colon, dash, whitespace or immediate trailing text)
+    for zh_kw in ('已完成', '完成', '已解决', '已修复', '已实现', '通过'):
+        if clean_v.startswith(zh_kw):
+            return True
+    if clean_v in ('[x]', '[v]', '已完成', '完成', '通过', 'pass', 'ok', 'merged', 'done'):
         return True
     return False
 
@@ -56,14 +60,14 @@ def parse_header_columns(header_cells):
         c = clean_cell(cell).lower()
         if len(c) > 30:
             continue
-        if any(k in c for k in ['优先级', 'priority', 'level']):
+        if any(k in c for k in ['优先级', 'priority', 'level', 'severity', 'prio', 'sev']):
             col_map['priority'] = idx
         elif any(k in c for k in ['标识', 'id', 'task id', '编号', 'opt']):
             col_map['id'] = idx
-        elif any(k in c for k in ['任务名称', '任务', 'task', 'name', 'title', '描述', 'description']):
+        elif any(k in c for k in ['任务名称', '任务', 'task', 'name', 'title', '描述', 'description', 'action', 'item', 'todo']):
             if 'id' not in col_map or col_map.get('id') != idx:
                 col_map['name'] = idx
-        elif any(k in c for k in ['状态', 'status', 'state', '进度']):
+        elif any(k in c for k in ['状态', 'status', 'state', '进度', 'progress']):
             col_map['status'] = idx
         elif any(k in c for k in ['涉及文件', '文件', 'file', 'files', 'path']):
             col_map['files'] = idx
@@ -164,11 +168,17 @@ def parse_improvements_file(filepath):
 
             # Task ID extraction: e.g. [OPT-01], **OPT-01**, OPT-01, TASK-01
             task_id = None
-            m_id = re.search(r'\b([A-Za-z0-9_\-]+)\b', rest)
-            if m_id and any(c.isdigit() for c in m_id.group(1)):
-                task_id = m_id.group(1).upper()
-                rest = re.sub(r'[*_`\[(]*' + re.escape(m_id.group(0)) + r'[*_`\])]*[:：\-\s]*', '', rest, count=1).strip()
-            else:
+            m_explicit = re.match(r'^(?:[*_`\[(]+)?([A-Za-z0-9_\-#]+)(?:[*_`\])]+)?[:：\-\s]+', rest)
+            if m_explicit:
+                candidate = m_explicit.group(1)
+                is_bracketed = bool(re.match(r'^[\[(][^\])]+[\])]', rest))
+                has_separator = bool(re.search(r'[A-Za-z]+[-_]\d+|\d+[-_][A-Za-z]+', candidate))
+                is_issue_num = bool(re.match(r'^#\d+$', candidate))
+                is_standard_prefix = bool(re.match(r'^(?:OPT|TASK|ISSUE|TODO|FEAT|FIX|SEC|PERF|BUG|ARCH|CHORE|TEST)\d+$', candidate, re.IGNORECASE))
+                if is_bracketed or has_separator or is_issue_num or is_standard_prefix:
+                    task_id = candidate.upper()
+                    rest = rest[m_explicit.end():].strip()
+            if not task_id:
                 task_id = f"OPT-{len(tasks)+1:02d}"
 
             name = rest.strip()
