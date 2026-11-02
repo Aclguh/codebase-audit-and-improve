@@ -33,10 +33,18 @@ jobs:
         run: python -m py_compile scripts/__init__.py scripts/check_health.py scripts/track_progress.py tests/test_check_health.py tests/test_track_progress.py
 
       - name: Verify Package Import & Modules
-        run: python -c "import scripts, scripts.check_health, scripts.track_progress; assert 'check_health' in scripts.__all__ and 'track_progress' in scripts.__all__"
+        run: python -c "import scripts; assert hasattr(scripts, 'check_health') and hasattr(scripts, 'track_progress')"
 
       - name: Run Unit Tests
         run: python -m unittest discover
+
+      - name: Install Package in Editable Mode
+        run: pip install -e .
+
+      - name: Verify CLI Commands End-to-End
+        run: |
+          check-health --json
+          track-progress examples/sample-improvements.md --json
 
       - name: Verify Health Inspector & Stack Self-Detection
         run: |
@@ -51,3 +59,7 @@ jobs:
         run: |
           bash -n install.sh
           bash install.sh --help
+
+      - name: Verify PowerShell Script Help Output (Windows)
+        if: runner.os == 'Windows'
+        run: powershell -ExecutionPolicy Bypass -File install.ps1 -Help
