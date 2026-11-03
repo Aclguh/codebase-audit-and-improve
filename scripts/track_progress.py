@@ -199,6 +199,18 @@ def parse_improvements_file(filepath):
 
 def main():
     args = sys.argv[1:]
+    if "-h" in args or "--help" in args:
+        print("Usage: track-progress [options] [path/to/IMPROVEMENTS.md]")
+        print("   or: python scripts/track_progress.py [options] [path/to/IMPROVEMENTS.md]\n")
+        print("IMPROVEMENTS.md Progress Tracker & Task Parser")
+        print("Dynamically parses task tables and checklists, calculating completion metrics.\n")
+        print("Options:")
+        print("  --check          Exit with code 1 if any tasks are still pending (CI gate)")
+        print("  --json           Output detailed progress metrics in JSON format")
+        print("  --quiet          Suppress human-readable console progress report")
+        print("  -h, --help       Show this help message and exit")
+        sys.exit(0)
+
     as_json = "--json" in args
     check_mode = "--check" in args
     quiet = "--quiet" in args

@@ -415,6 +415,18 @@ def run_baseline_command(cmd, cwd):
         }
 
 def main():
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print("Usage: check-health [options]")
+        print("   or: python scripts/check_health.py [options]\n")
+        print("Project Health Inspector & Baseline Tool")
+        print("Inspects project tech stacks, git repository status, and .gitignore safety.\n")
+        print("Options:")
+        print("  --json           Output full inspection results in JSON format")
+        print("  --run-baseline   Execute project linters and test suites to record baseline")
+        print("  --fix-gitignore  Safely append IMPROVEMENTS.md to .gitignore if missing")
+        print("  -h, --help       Show this help message and exit")
+        return
+
     cwd = os.getcwd()
     as_json = "--json" in sys.argv
     run_baseline = "--run-baseline" in sys.argv
