@@ -7,20 +7,36 @@ set -e
 TARGET="all"
 WORKSPACE=false
 
-for arg in "$@"; do
-    case "$arg" in
+while [ $# -gt 0 ]; do
+    case "$1" in
         -h|--help)
             echo "Usage: ./install.sh [options] [target]"
             echo "Targets: antigravity, claude, cursor, continue, deepseek, codex, all (default: all)"
             echo "Options:"
-            echo "  --workspace, -w    Install into current workspace instead of global config"
-            echo "  --target=<target>  Specify agent target"
-            echo "  -h, --help         Show this help message"
+            echo "  --workspace, -w        Install into current workspace instead of global config"
+            echo "  --target=<t>, -t <t>   Specify agent target"
+            echo "  -h, --help             Show this help message"
             exit 0
             ;;
-        --workspace|-w) WORKSPACE=true ;;
-        --target=*) TARGET="${arg#*=}" ;;
-        antigravity|claude|cursor|continue|deepseek|codex|all) TARGET="$arg" ;;
+        --workspace|-w)
+            WORKSPACE=true
+            shift
+            ;;
+        --target=*)
+            TARGET="${1#*=}"
+            shift
+            ;;
+        -t|--target)
+            TARGET="$2"
+            shift 2
+            ;;
+        antigravity|claude|cursor|continue|deepseek|codex|all)
+            TARGET="$1"
+            shift
+            ;;
+        *)
+            shift
+            ;;
     esac
 done
 
