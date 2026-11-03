@@ -181,8 +181,12 @@ def detect_stack(cwd):
         else:
             lint_cmd = f"{runner} compileall -q ."
 
-        test_cmd = f"{runner} pytest" if shutil.which("pytest") else unittest_cmd
-        coverage_cmd = f"{runner} pytest --cov=." if shutil.which("pytest") else unittest_cov_cmd
+        has_pytest = shutil.which("pytest") is not None
+        test_cmd = f"{runner} pytest" if has_pytest else unittest_cmd
+        if has_pytest:
+            coverage_cmd = f"{runner} coverage run -m pytest"
+        else:
+            coverage_cmd = unittest_cov_cmd
         
         stacks.append({
             "name": "Python",
@@ -526,6 +530,8 @@ def main():
             status_text = "PASS" if res.get("success") else f"FAIL (Exit code {res.get('exit_code')})"
             stack_label = f" [{res['stack']}]" if "stack" in res else ""
             print(f"  - `{res['cmd']}`{stack_label}: {status_text}")
+            if not res.get("success") and res.get("error"):
+                print(f"    Error detail: {res['error']}")
 
     print("\n" + "=" * 65)
 
