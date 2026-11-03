@@ -370,5 +370,78 @@ class TestCheckHealth(unittest.TestCase):
             info = check_health.check_git_status(self.test_dir)
             self.assertEqual(info["branch"], "detached@deadbeef")
 
+
+    def test_check_health_cli_help(self):
+        import io
+        from contextlib import redirect_stdout
+        for help_flag in ["--help", "-h"]:
+            with patch("sys.argv", ["check_health.py", help_flag]):
+                buf = io.StringIO()
+                with redirect_stdout(buf):
+                    check_health.main()
+                output = buf.getvalue()
+                self.assertIn("Usage: check-health", output)
+                self.assertIn("--json", output)
+                self.assertIn("--run-baseline", output)
+
+    def test_check_git_status_protected_branch_patterns(self):
+        for branch_name, expected_protected in [
+            ("main", True),
+            ("master", True),
+            ("release", True),
+            ("release/v1.0", True),
+            ("releases/2026", True),
+            ("release-2.0", True),
+            ("prod", True),
+            ("production", True),
+            ("prod/cluster", True),
+            ("prod-east", True),
+            ("feature/my-task", False),
+            ("refactor/loop", False),
+            ("hotfix/bug", False),
+        ]:
+            def fake_run(cmd, *args, **kwargs):
+                cmd_str = " ".join(cmd)
+                if "rev-parse --is-inside-work-tree" in cmd_str:
+                    return subprocess.CompletedProcess(cmd, 0, stdout="true\n")
+                if "branch --show-current" in cmd_str:
+                    return subprocess.CompletedProcess(cmd, 0, stdout=f"{branch_name}\n")
+                if "status --porcelain" in cmd_str:
+                    return subprocess.CompletedProcess(cmd, 0, stdout="")
+                if "remote get-url" in cmd_str:
+                    return subprocess.CompletedProcess(cmd, 0, stdout="https://github.com/org/repo\n")
+                return subprocess.CompletedProcess(cmd, 0, stdout="")
+
+            with patch("shutil.which", return_value="/usr/bin/git"), patch("subprocess.run", side_effect=fake_run):
+                info = check_health.check_git_status(self.test_dir)
+                self.assertEqual(info["is_protected_branch"], expected_protected, f"Failed for branch {branch_name}")
+
+    def test_run_baseline_with_error_reporting(self):
+        import io
+        from contextlib import redirect_stdout
+        res = check_health.run_baseline_command("exit 1", self.test_dir)
+        self.assertFalse(res["success"])
+        self.assertEqual(res["exit_code"], 1)
+
+        # Verify console output handles error preview when error present
+        fake_baseline = [{
+            "cmd": "broken_linter",
+            "stack": "TestStack",
+            "exit_code": -1,
+            "success": False,
+            "error": "command timed out after 120 seconds"
+        }]
+        with patch.object(check_health, "detect_monorepo", return_value=[]), \
+             patch.object(check_health, "detect_stack", return_value=[{"name": "TestStack", "lint_cmd": "broken", "test_cmd": "", "coverage_cmd": ""}]), \
+             patch.object(check_health, "check_git_status", return_value={"is_git": False}), \
+             patch.object(check_health, "check_gitignore", return_value=(True, "ok", ".gitignore")), \
+             patch.object(check_health, "run_baseline_command", return_value=fake_baseline[0]), \
+             patch("sys.argv", ["check_health.py", "--run-baseline"]):
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                check_health.main()
+            output = buf.getvalue()
+            self.assertIn("Error detail: command timed out", output)
+
 if __name__ == "__main__":
     unittest.main()

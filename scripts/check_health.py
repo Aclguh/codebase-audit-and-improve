@@ -181,8 +181,12 @@ def detect_stack(cwd):
         else:
             lint_cmd = f"{runner} compileall -q ."
 
-        test_cmd = f"{runner} pytest" if shutil.which("pytest") else unittest_cmd
-        coverage_cmd = f"{runner} pytest --cov=." if shutil.which("pytest") else unittest_cov_cmd
+        has_pytest = shutil.which("pytest") is not None
+        test_cmd = f"{runner} pytest" if has_pytest else unittest_cmd
+        if has_pytest:
+            coverage_cmd = f"{runner} coverage run -m pytest"
+        else:
+            coverage_cmd = unittest_cov_cmd
         
         stacks.append({
             "name": "Python",
@@ -320,7 +324,11 @@ def check_git_status(cwd):
             else:
                 branch = "HEAD (detached)"
         result["branch"] = branch
-        result["is_protected_branch"] = branch.lower() in ("main", "master", "release", "prod", "production")
+        b_lower = branch.lower()
+        result["is_protected_branch"] = (
+            b_lower in ("main", "master", "release", "prod", "production")
+            or b_lower.startswith(("release/", "releases/", "prod/", "production/", "release-", "prod-"))
+        )
         
         # Check dirty working tree
         p_status = subprocess.run(["git", "status", "--porcelain"], cwd=cwd, capture_output=True, text=True, check=True, timeout=15)
@@ -381,7 +389,6 @@ def add_to_gitignore(cwd):
             return False
     except Exception:
         return False
-        return False
     entry = "\n# Temporary audit and improvement roadmap\nIMPROVEMENTS.md\n"
     if os.path.exists(gitignore_path):
         with open(gitignore_path, "a", encoding="utf-8") as f:
@@ -412,6 +419,18 @@ def run_baseline_command(cmd, cwd):
         }
 
 def main():
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print("Usage: check-health [options]")
+        print("   or: python scripts/check_health.py [options]\n")
+        print("Project Health Inspector & Baseline Tool")
+        print("Inspects project tech stacks, git repository status, and .gitignore safety.\n")
+        print("Options:")
+        print("  --json           Output full inspection results in JSON format")
+        print("  --run-baseline   Execute project linters and test suites to record baseline")
+        print("  --fix-gitignore  Safely append IMPROVEMENTS.md to .gitignore if missing")
+        print("  -h, --help       Show this help message and exit")
+        return
+
     cwd = os.getcwd()
     as_json = "--json" in sys.argv
     run_baseline = "--run-baseline" in sys.argv
@@ -511,6 +530,8 @@ def main():
             status_text = "PASS" if res.get("success") else f"FAIL (Exit code {res.get('exit_code')})"
             stack_label = f" [{res['stack']}]" if "stack" in res else ""
             print(f"  - `{res['cmd']}`{stack_label}: {status_text}")
+            if not res.get("success") and res.get("error"):
+                print(f"    Error detail: {res['error']}")
 
     print("\n" + "=" * 65)
 

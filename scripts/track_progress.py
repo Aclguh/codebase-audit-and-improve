@@ -34,8 +34,8 @@ def is_status_done(val):
     """Determine if a status cell represents completion."""
     if not val:
         return False
-    # Direct brackets match: [x], [X], [v], [V], [✓], [✔], [✅], [☑], [√]
-    if re.search(r'\[[xXvV✓✔✅☑√]\]', val):
+    # Direct brackets match: [x], [X], [v], [V], [✓], [✔], [✅], [☑], [√], [y], [Y]
+    if re.search(r'\[[xXvVyY✓✔✅☑√]\]', val):
         return True
     # Unicode and check symbols anywhere in cell
     if any(sym in val for sym in ('✓', '✔', '✅', '☑', '√')):
@@ -43,13 +43,13 @@ def is_status_done(val):
     # Strip markdown markers
     clean_v = clean_cell(val).lower()
     # Check if cleaned text starts with standard completion keywords (even if followed by commit hash, PR, or note)
-    if re.match(r'^(?:done|completed|complete|pass|passed|finished|ok|resolved|fixed|closed|merged|success)\b', clean_v):
+    if re.match(r'^(?:done|completed|complete|pass|passed|finished|ok|resolved|fixed|closed|merged|success|implemented|yes|true)\b', clean_v):
         return True
     # Chinese completion prefixes (handles colon, dash, whitespace or immediate trailing text)
     for zh_kw in ('已完成', '完成', '已解决', '已修复', '已实现', '通过'):
         if clean_v.startswith(zh_kw):
             return True
-    if clean_v in ('[x]', '[v]', '已完成', '完成', '通过', 'pass', 'ok', 'merged', 'done'):
+    if clean_v in ('[x]', '[v]', '[y]', 'y', 'yes', 'true', '已完成', '完成', '通过', 'pass', 'ok', 'merged', 'done', 'implemented'):
         return True
     return False
 
@@ -67,7 +67,7 @@ def parse_header_columns(header_cells):
         elif any(k in c for k in ['任务名称', '任务', 'task', 'name', 'title', '描述', 'description', 'action', 'item', 'todo']):
             if 'id' not in col_map or col_map.get('id') != idx:
                 col_map['name'] = idx
-        elif any(k in c for k in ['状态', 'status', 'state', '进度', 'progress']):
+        elif any(k in c for k in ['状态', 'status', 'state', '进度', 'progress', 'done', 'completed', 'complete', 'finished', 'resolved']):
             col_map['status'] = idx
         elif any(k in c for k in ['涉及文件', '文件', 'file', 'files', 'path']):
             col_map['files'] = idx
@@ -124,36 +124,38 @@ def parse_improvements_file(filepath):
                 prio_idx = col_map.get('priority')
                 name_idx = col_map.get('name')
                 
-                # If row has enough columns
+                # Check if row has status or defaults to pending
                 if status_idx is not None and status_idx < len(raw_cells):
                     status_raw = raw_cells[status_idx]
                     is_done = is_status_done(status_raw)
+                else:
+                    is_done = False
                     
-                    task_id = clean_cell(raw_cells[id_idx]) if (id_idx is not None and id_idx < len(raw_cells)) else f"TASK-{len(tasks)+1:02d}"
-                    raw_prio = clean_cell(raw_cells[prio_idx]).upper() if (prio_idx is not None and prio_idx < len(raw_cells)) else "P2"
-                    m_prio = re.search(r'(?i)\b(P\d+)(?=[^\d]|$)', raw_prio)
-                    priority = m_prio.group(1).upper() if m_prio else "P2"
-                    name = clean_cell(raw_cells[name_idx]) if (name_idx is not None and name_idx < len(raw_cells)) else ""
+                task_id = clean_cell(raw_cells[id_idx]) if (id_idx is not None and id_idx < len(raw_cells)) else f"TASK-{len(tasks)+1:02d}"
+                raw_prio = clean_cell(raw_cells[prio_idx]).upper() if (prio_idx is not None and prio_idx < len(raw_cells)) else "P2"
+                m_prio = re.search(r'(?i)\b(P\d+)(?=[^\d]|$)', raw_prio)
+                priority = m_prio.group(1).upper() if m_prio else "P2"
+                name = clean_cell(raw_cells[name_idx]) if (name_idx is not None and name_idx < len(raw_cells)) else ""
+                
+                if not name and len(raw_cells) > 2:
+                    name = clean_cell(raw_cells[2])
                     
-                    if not name and len(raw_cells) > 2:
-                        name = clean_cell(raw_cells[2])
-                        
-                    # Valid task row check
-                    if task_id or name:
-                        tasks.append({
-                            "line": idx + 1,
-                            "priority": priority,
-                            "id": task_id if task_id else f"OPT-{len(tasks)+1:02d}",
-                            "name": name,
-                            "done": is_done
-                        })
-                        continue
+                # Valid task row check
+                if task_id or name:
+                    tasks.append({
+                        "line": idx + 1,
+                        "priority": priority,
+                        "id": task_id if task_id else f"OPT-{len(tasks)+1:02d}",
+                        "name": name,
+                        "done": is_done
+                    })
+                    continue
         else:
             in_table = False
             col_map = {}
             
         # 2. Parse Markdown Checklists
-        m_list = re.match(r'^(?:[-*+]|\d+\.)\s*\[([ xXvV✓✔✅☑√]|\s*)\](?!\()\s*(.+)$', line_clean)
+        m_list = re.match(r'^(?:[-*+]|\d+\.)\s*\[([ xXvVyY✓✔✅☑√]|\s*)\](?!\()\s*(.+)$', line_clean)
         if m_list:
             bracket_val = m_list.group(1).strip()
             is_done = is_status_done(bracket_val) or is_status_done(f"[{bracket_val}]")
@@ -197,6 +199,18 @@ def parse_improvements_file(filepath):
 
 def main():
     args = sys.argv[1:]
+    if "-h" in args or "--help" in args:
+        print("Usage: track-progress [options] [path/to/IMPROVEMENTS.md]")
+        print("   or: python scripts/track_progress.py [options] [path/to/IMPROVEMENTS.md]\n")
+        print("IMPROVEMENTS.md Progress Tracker & Task Parser")
+        print("Dynamically parses task tables and checklists, calculating completion metrics.\n")
+        print("Options:")
+        print("  --check          Exit with code 1 if any tasks are still pending (CI gate)")
+        print("  --json           Output detailed progress metrics in JSON format")
+        print("  --quiet          Suppress human-readable console progress report")
+        print("  -h, --help       Show this help message and exit")
+        sys.exit(0)
+
     as_json = "--json" in args
     check_mode = "--check" in args
     quiet = "--quiet" in args

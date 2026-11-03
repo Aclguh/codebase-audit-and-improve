@@ -330,5 +330,75 @@ class TestTrackProgress(unittest.TestCase):
     def test_clean_cell_strikethrough(self):
         self.assertEqual(track_progress.clean_cell("~~OPT-01~~"), "OPT-01")
 
+
+    def test_track_progress_cli_help(self):
+        import io
+        from contextlib import redirect_stdout
+        for help_flag in ["--help", "-h"]:
+            with patch("sys.argv", ["track_progress.py", help_flag]):
+                buf = io.StringIO()
+                with redirect_stdout(buf):
+                    with self.assertRaises(SystemExit) as cm:
+                        track_progress.main()
+                    self.assertEqual(cm.exception.code, 0)
+                output = buf.getvalue()
+                self.assertIn("Usage: track-progress", output)
+                self.assertIn("--check", output)
+                self.assertIn("--json", output)
+
+    def test_extended_status_done_implemented_and_yes(self):
+        for val in [
+            "implemented", "Implemented", "IMPLEMENTED",
+            "yes", "Yes", "YES",
+            "true", "True", "TRUE",
+            "[y]", "[Y]",
+            "[y] In progress with PR",
+            "Implemented in v2.0"
+        ]:
+            self.assertTrue(track_progress.is_status_done(val), f"Failed for {val}")
+
+    def test_table_with_done_header(self):
+        content = """# Table with Done header
+| ID | Priority | Task | Done |
+| :---: | :---: | :--- | :---: |
+| OPT-01 | P0 | Fix security bug | [x] |
+| OPT-02 | P1 | Add telemetry | [ ] |
+| OPT-03 | P2 | Write docs | Yes |
+"""
+        filepath = os.path.join(self.test_dir, "IMPROVEMENTS.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 3)
+        self.assertEqual(tasks[0]["id"], "OPT-01")
+        self.assertTrue(tasks[0]["done"])
+        self.assertEqual(tasks[1]["id"], "OPT-02")
+        self.assertFalse(tasks[1]["done"])
+        self.assertEqual(tasks[2]["id"], "OPT-03")
+        self.assertTrue(tasks[2]["done"])
+
+    def test_table_without_status_column_defaults_to_pending(self):
+        content = """# Task Table Without Status Column
+| Priority | ID | Task Name |
+| :---: | :---: | :--- |
+| P1 | OPT-10 | Modernize error handling |
+| P2 | OPT-11 | Streamline build pipeline |
+"""
+        filepath = os.path.join(self.test_dir, "IMPROVEMENTS.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 2)
+        self.assertEqual(tasks[0]["id"], "OPT-10")
+        self.assertEqual(tasks[0]["name"], "Modernize error handling")
+        self.assertFalse(tasks[0]["done"])
+        self.assertEqual(tasks[1]["id"], "OPT-11")
+        self.assertEqual(tasks[1]["name"], "Streamline build pipeline")
+        self.assertFalse(tasks[1]["done"])
+
 if __name__ == "__main__":
     unittest.main()

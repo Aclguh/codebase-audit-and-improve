@@ -35,8 +35,9 @@ function Install-SkillFiles($DestinationDir, $SkillName) {
     New-Item -ItemType Directory -Path $DestinationDir -Force | Out-Null
     Copy-Item -Recurse -Path (Join-Path $ScriptDir "references") -Destination $DestinationDir
     Copy-Item -Recurse -Path (Join-Path $ScriptDir "scripts") -Destination $DestinationDir
-    $Pycache = Join-Path $DestinationDir "scripts\__pycache__"
+    $Pycache = Join-Path (Join-Path $DestinationDir "scripts") "__pycache__"
     if (Test-Path $Pycache) { Remove-Item -Recurse -Force $Pycache }
+    Get-ChildItem -Path (Join-Path $DestinationDir "scripts") -Filter "*.pyc" -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
     if (Test-Path (Join-Path $ScriptDir "LICENSE")) {
         Copy-Item -Path (Join-Path $ScriptDir "LICENSE") -Destination $DestinationDir
     }
