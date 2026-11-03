@@ -320,7 +320,11 @@ def check_git_status(cwd):
             else:
                 branch = "HEAD (detached)"
         result["branch"] = branch
-        result["is_protected_branch"] = branch.lower() in ("main", "master", "release", "prod", "production")
+        b_lower = branch.lower()
+        result["is_protected_branch"] = (
+            b_lower in ("main", "master", "release", "prod", "production")
+            or b_lower.startswith(("release/", "releases/", "prod/", "production/", "release-", "prod-"))
+        )
         
         # Check dirty working tree
         p_status = subprocess.run(["git", "status", "--porcelain"], cwd=cwd, capture_output=True, text=True, check=True, timeout=15)
@@ -380,7 +384,6 @@ def add_to_gitignore(cwd):
         if os.path.dirname(gitignore_path) != abs_cwd or Path(gitignore_path).resolve().parent != Path(abs_cwd).resolve():
             return False
     except Exception:
-        return False
         return False
     entry = "\n# Temporary audit and improvement roadmap\nIMPROVEMENTS.md\n"
     if os.path.exists(gitignore_path):
