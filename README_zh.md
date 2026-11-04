@@ -80,6 +80,9 @@ chmod +x install.sh && ./install.sh all
 
 *提示：也可以指定单一工具安装：`-Target Claude`、`-Target Codex`、`-Target Cursor`、`-Target DeepSeek`、`-Target Antigravity` 或 `-Target Continue`。*
 
+拼写错误的目标或未知选项会以非 0 退出码明确报错，而不会再静默回退安装全部 Agent；`--target` / `-t`
+必须提供值。
+
 ### 2. 工作区专属安装（随项目提交团队共享）
 
 直接在当前代码仓库工作区生成配置，团队内任何使用 Claude Code、Codex、Cursor、DeepSeek Harness、Antigravity 或 Continue 的成员打开项目输入 `/` 即可联想补全：
@@ -163,7 +166,8 @@ codebase-audit-and-improve/
 │   └── cursor/                  # Cursor IDE 命令模板
 ├── tests/                       # 自动化单元测试套件
 │   ├── test_check_health.py     # 探针工具测试
-│   └── test_track_progress.py   # 进度解析工具测试
+│   ├── test_track_progress.py   # 进度解析工具测试
+│   └── test_install_sh.py       # install.sh 参数与安装集成测试
 └── examples/
     └── sample-improvements.md   # 生产级样本 IMPROVEMENTS.md
 ```
@@ -180,6 +184,13 @@ python scripts/check_health.py --json
 # 自动将 IMPROVEMENTS.md 追加至 .gitignore
 python scripts/check_health.py --fix-gitignore
 
+# 执行检测到的 linter 与测试命令并记录基线
+python scripts/check_health.py --run-baseline
+
+# 查看全部参数与退出码说明
+python scripts/check_health.py --help
+python scripts/track_progress.py --help
+
 # 解析 IMPROVEMENTS.md 中的实施进度与完成率
 python scripts/track_progress.py IMPROVEMENTS.md
 
@@ -188,6 +199,23 @@ python scripts/track_progress.py --check
 
 # 执行自动化测试套件
 python -m unittest discover tests
+```
+
+在 Git 工作区内，`.gitignore` 保护状态通过 `git check-ignore` 权威判定；在大小写敏感文件系统上
+不生效的规则会被正确报告为「未保护」。
+
+## 本地开发与质量门禁
+
+```bash
+# 安装包与开发依赖
+python -m pip install -e ".[dev]"
+
+# 静态分析（CI 固定 ruff 0.17.3，并使用 E4/E7/E9/F 规则集）
+python -m ruff check .
+
+# 与 CI 一致的全量测试与覆盖率门禁（scripts/ 覆盖率需 >= 90%）
+python -m coverage run --source=scripts -m unittest discover
+python -m coverage report --fail-under=90 --show-missing
 ```
 
 ## 开源协议
