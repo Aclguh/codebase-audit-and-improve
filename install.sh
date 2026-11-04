@@ -62,6 +62,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CURRENT_DIR="$(pwd)"
 USER_HOME="${HOME}"
 
+if [ "${WORKSPACE}" = true ]; then
+    [ -n "${CURRENT_DIR}" ] && [ "${CURRENT_DIR}" != "/" ] || die "Refusing to install into the filesystem root"
+else
+    [ -n "${USER_HOME}" ] || die "HOME is not set; use --workspace or set HOME"
+    [ "${USER_HOME}" != "/" ] || die "Refusing to install into root HOME; use --workspace"
+    [ -d "${USER_HOME}" ] || die "HOME directory does not exist: ${USER_HOME}"
+fi
+
 install_skill_files() {
     local dest="$1"
     local skill_name="$2"
@@ -69,6 +77,22 @@ install_skill_files() {
         echo "Error: Invalid destination path '${dest}'" >&2
         return 1
     fi
+    case "${dest}" in
+        "${CURRENT_DIR}"/*) ;;
+        *)
+            if [ -z "${USER_HOME}" ] || [ "${USER_HOME}" = "/" ]; then
+                echo "Error: Refusing destination outside expected install roots: ${dest}" >&2
+                return 1
+            fi
+            case "${dest}" in
+                "${USER_HOME}"/*) ;;
+                *)
+                    echo "Error: Refusing destination outside expected install roots: ${dest}" >&2
+                    return 1
+                    ;;
+            esac
+            ;;
+    esac
     mkdir -p "${dest}"
     rm -rf "${dest:?}"/*
     cp -R "${SCRIPT_DIR}/references" "${dest}/"

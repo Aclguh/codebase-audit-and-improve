@@ -68,6 +68,38 @@ class TestInstallSh(unittest.TestCase):
                 self.assertIn("requires a value", result.stderr)
         self.assert_no_workspace_output()
 
+    def test_global_install_rejects_empty_home(self):
+        env = self.env.copy()
+        env["HOME"] = ""
+        env["USERPROFILE"] = ""
+        result = subprocess.run(
+            [BASH, INSTALL_SH.as_posix(), "claude"],
+            cwd=self.test_dir,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        # Git Bash may replace an empty HOME with a synthetic path; both the
+        # missing-HOME and non-existent-HOME guards are acceptable.
+        self.assertRegex(result.stderr, r"HOME (is not set|directory)")
+        self.assert_no_workspace_output()
+
+    def test_global_install_rejects_root_home(self):
+        env = self.env.copy()
+        env["HOME"] = "/"
+        result = subprocess.run(
+            [BASH, INSTALL_SH.as_posix(), "claude"],
+            cwd=self.test_dir,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("root HOME", result.stderr)
+
     def test_workspace_claude_install_copies_skill_files(self):
         result = self.run_install("--workspace", "claude")
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -77,6 +109,14 @@ class TestInstallSh(unittest.TestCase):
             self.assertTrue(os.path.isfile(os.path.join(skill_dir, "SKILL.md")))
             self.assertTrue(os.path.isfile(os.path.join(skill_dir, "scripts", "check_health.py")))
             self.assertTrue(os.path.isfile(os.path.join(skill_dir, "references", "audit-dimensions.md")))
+
+    def test_global_claude_install_uses_home(self):
+        result = self.run_install("claude")
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+        skill_dir = os.path.join(self.test_dir, ".claude", "skills", "improve")
+        self.assertTrue(os.path.isfile(os.path.join(skill_dir, "SKILL.md")))
+        self.assertTrue(os.path.isfile(os.path.join(skill_dir, "scripts", "check_health.py")))
 
 
 if __name__ == "__main__":
