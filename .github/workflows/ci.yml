@@ -63,3 +63,22 @@ jobs:
       - name: Verify PowerShell Script Help Output (Windows)
         if: runner.os == 'Windows'
         run: powershell -ExecutionPolicy Bypass -File install.ps1 -Help
+
+      - name: Verify PowerShell Workspace Install (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $TestDir = Join-Path $env:RUNNER_TEMP "install-smoke"
+          New-Item -ItemType Directory -Path $TestDir -Force | Out-Null
+          Push-Location $TestDir
+          try {
+            powershell -ExecutionPolicy Bypass -File "$env:GITHUB_WORKSPACE\install.ps1" -Target Claude -Workspace
+            if ($LASTEXITCODE -ne 0) { throw "install.ps1 failed with exit code $LASTEXITCODE" }
+            foreach ($Name in @("improve", "improve-all")) {
+              $SkillFile = Join-Path $TestDir ".claude\skills\$Name\SKILL.md"
+              if (-not (Test-Path $SkillFile)) { throw "Missing installed skill file: $SkillFile" }
+            }
+            Write-Host "PowerShell workspace install OK"
+          } finally {
+            Pop-Location
+          }
