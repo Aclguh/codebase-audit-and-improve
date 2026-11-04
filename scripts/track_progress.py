@@ -102,10 +102,31 @@ def parse_improvements_file(filepath):
     tasks = []
     in_table = False
     col_map = {}
-    
+    in_fence = False
+    fence_char = ""
+    fence_length = 0
+
     for idx, line in enumerate(lines):
         line_clean = line.strip()
-        
+
+        # 0. Skip fenced code blocks so documented examples are never counted.
+        if in_fence:
+            closing_fence = re.match(r'^(`{3,}|~{3,})\s*$', line_clean)
+            if closing_fence and closing_fence.group(1)[0] == fence_char and len(closing_fence.group(1)) >= fence_length:
+                in_fence = False
+            in_table = False
+            col_map = {}
+            continue
+
+        opening_fence = re.match(r'^(`{3,}|~{3,})', line_clean)
+        if opening_fence:
+            in_fence = True
+            fence_char = opening_fence.group(1)[0]
+            fence_length = len(opening_fence.group(1))
+            in_table = False
+            col_map = {}
+            continue
+
         # 1. Parse Markdown Tables
         if line_clean.startswith("|") and line_clean.endswith("|"):
             raw_cells = [c.strip() for c in line_clean.split("|")[1:-1]]

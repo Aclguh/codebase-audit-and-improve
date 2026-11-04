@@ -427,6 +427,47 @@ class TestTrackProgress(unittest.TestCase):
                 self.assertEqual(tasks[1]["name"], "Pending task")
                 self.assertFalse(tasks[1]["done"])
 
+    def test_fenced_code_blocks_are_ignored(self):
+        content = """# Roadmap
+
+```markdown
+| 优先级 | 任务标识 | 任务名称 | 状态 |
+| :---: | :---: | :--- | :---: |
+| P0 | OPT-99 | Example inside fence | [ ] |
+- [ ] OPT-98: Checklist inside fence
+```
+
+| 优先级 | 任务标识 | 任务名称 | 状态 |
+| :---: | :---: | :--- | :---: |
+| P0 | OPT-01 | Real task | [ ] |
+"""
+        filepath = os.path.join(self.test_dir, "FENCED.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 1)
+        self.assertEqual(tasks[0]["id"], "OPT-01")
+        self.assertEqual(tasks[0]["name"], "Real task")
+
+    def test_longer_and_tilde_fences_respect_marker_type(self):
+        content = """~~~~markdown
+```
+| 优先级 | 任务标识 | 任务名称 | 状态 |
+| :---: | :---: | :--- | :---: |
+| P0 | OPT-99 | Nested example | [ ] |
+```
+~~~~
+"""
+        filepath = os.path.join(self.test_dir, "TILDE.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(tasks, [])
+
     def test_header_id_uses_word_boundary(self):
         columns = track_progress.parse_header_columns(["Valid", "Task", "Status"])
         self.assertNotIn("id", columns)
