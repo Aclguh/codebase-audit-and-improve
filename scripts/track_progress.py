@@ -53,6 +53,22 @@ def is_status_done(val):
         return True
     return False
 
+def header_contains(cell, keywords):
+    """Return True when a header cell matches one of the keywords.
+
+    ASCII keywords use word boundaries so short tokens such as ``id`` do not
+    match unrelated words (for example ``Valid``). Non-ASCII keywords keep
+    substring semantics so Chinese headers such as ``任务状态`` still match.
+    """
+    for keyword in keywords:
+        if keyword.isascii():
+            pattern = r'(?<![a-z0-9])' + re.escape(keyword) + r's?(?![a-z0-9])'
+            if re.search(pattern, cell):
+                return True
+        elif keyword in cell:
+            return True
+    return False
+
 def parse_header_columns(header_cells):
     """Map column indices based on header names."""
     col_map = {}
@@ -60,19 +76,20 @@ def parse_header_columns(header_cells):
         c = clean_cell(cell).lower()
         if len(c) > 30:
             continue
-        if any(k in c for k in ['优先级', 'priority', 'level', 'severity', 'prio', 'sev']):
+        # Status is checked before name: headers such as "Task Status" and
+        # "任务状态" also contain "task"/"任务" but denote the status column.
+        if header_contains(c, ['优先级', 'priority', 'level', 'severity', 'prio', 'sev']):
             col_map['priority'] = idx
-        elif any(k in c for k in ['标识', 'id', 'task id', '编号', 'opt']):
+        elif header_contains(c, ['标识', 'id', 'task id', '编号', 'opt']):
             col_map['id'] = idx
-        elif any(k in c for k in ['任务名称', '任务', 'task', 'name', 'title', '描述', 'description', 'action', 'item', 'todo']):
-            if 'id' not in col_map or col_map.get('id') != idx:
-                col_map['name'] = idx
-        elif any(k in c for k in ['状态', 'status', 'state', '进度', 'progress', 'done', 'completed', 'complete', 'finished', 'resolved']):
+        elif header_contains(c, ['状态', 'status', 'state', '进度', 'progress', 'done', 'completed', 'complete', 'finished', 'resolved']):
             col_map['status'] = idx
-        elif any(k in c for k in ['涉及文件', '文件', 'file', 'files', 'path']):
+        elif header_contains(c, ['涉及文件', '文件', 'file', 'files', 'path']):
             col_map['files'] = idx
-        elif any(k in c for k in ['收益', 'benefit', 'impact']):
+        elif header_contains(c, ['收益', 'benefit', 'impact']):
             col_map['benefit'] = idx
+        elif header_contains(c, ['任务名称', '任务', 'task', 'name', 'title', '描述', 'description', 'action', 'item', 'todo']):
+            col_map['name'] = idx
     return col_map
 
 def parse_improvements_file(filepath):
@@ -105,11 +122,14 @@ def parse_improvements_file(filepath):
             # Check if this is a table header
             if is_followed_by_separator:
                 detected_map = parse_header_columns(raw_cells)
-                if 'status' in detected_map and ('id' in detected_map or 'name' in detected_map or 'priority' in detected_map):
-                    col_map = detected_map
-                    in_table = True
-                    continue
-                elif 'id' in detected_map and 'priority' in detected_map and 'name' in detected_map:
+                has_status = 'status' in detected_map
+                has_identity = any(key in detected_map for key in ('id', 'priority', 'name'))
+                # Accept tables with a status column, or name-based tables that
+                # carry an id/priority. This keeps compact "ID | Task" tables.
+                is_task_table = (has_status and has_identity) or (
+                    'name' in detected_map and ('id' in detected_map or 'priority' in detected_map)
+                )
+                if is_task_table:
                     col_map = detected_map
                     in_table = True
                     continue

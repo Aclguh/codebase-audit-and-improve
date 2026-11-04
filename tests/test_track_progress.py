@@ -400,5 +400,56 @@ class TestTrackProgress(unittest.TestCase):
         self.assertEqual(tasks[1]["name"], "Streamline build pipeline")
         self.assertFalse(tasks[1]["done"])
 
+    def test_task_status_header_variants(self):
+        variants = [
+            """| 优先级 | 任务标识 | 任务名称 | 任务状态 |
+| :---: | :---: | :--- | :---: |
+| P0 | OPT-01 | Done task | [x] |
+| P1 | OPT-02 | Pending task | [ ] |
+""",
+            """| Priority | ID | Task | Task Status |
+| :---: | :---: | :--- | :---: |
+| P0 | OPT-01 | Done task | [x] |
+| P1 | OPT-02 | Pending task | [ ] |
+""",
+        ]
+        filepath = os.path.join(self.test_dir, "STATUS_HEADERS.md")
+        for content in variants:
+            with self.subTest(content=content.splitlines()[0]):
+                with open(filepath, "w", encoding="utf-8") as f:
+                    f.write(content)
+
+                tasks, err = track_progress.parse_improvements_file(filepath)
+                self.assertIsNone(err)
+                self.assertEqual(len(tasks), 2)
+                self.assertEqual(tasks[0]["name"], "Done task")
+                self.assertTrue(tasks[0]["done"])
+                self.assertEqual(tasks[1]["name"], "Pending task")
+                self.assertFalse(tasks[1]["done"])
+
+    def test_header_id_uses_word_boundary(self):
+        columns = track_progress.parse_header_columns(["Valid", "Task", "Status"])
+        self.assertNotIn("id", columns)
+        self.assertEqual(columns.get("name"), 1)
+        self.assertEqual(columns.get("status"), 2)
+
+    def test_id_and_name_table_without_status(self):
+        content = """| ID | Task |
+| :---: | :--- |
+| OPT-01 | Fix startup crash |
+"""
+        filepath = os.path.join(self.test_dir, "COMPACT.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 1)
+        self.assertEqual(tasks[0]["id"], "OPT-01")
+        self.assertEqual(tasks[0]["name"], "Fix startup crash")
+        self.assertEqual(tasks[0]["priority"], "P2")
+        self.assertFalse(tasks[0]["done"])
+
+
 if __name__ == "__main__":
     unittest.main()
