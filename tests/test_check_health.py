@@ -243,10 +243,9 @@ class TestCheckHealth(unittest.TestCase):
     def test_add_to_gitignore_sandbox_check(self):
         # Normal add
         self.assertTrue(check_health.add_to_gitignore(self.test_dir))
-        # Escaping relative path outside root
-        escape_path = os.path.join(self.test_dir, "..", "..", "escaped")
-        with patch("os.path.abspath", side_effect=lambda p: "/var/root/outside" if "outside" in p else p):
-            pass
+        # A resolution failure must fail closed instead of writing anywhere.
+        with patch("pathlib.Path.resolve", side_effect=OSError("filesystem unavailable")):
+            self.assertFalse(check_health.add_to_gitignore(self.test_dir))
 
     def test_check_git_status_missing_git(self):
         with patch("shutil.which", return_value=None):
@@ -259,31 +258,30 @@ class TestCheckHealth(unittest.TestCase):
         self.assertFalse(info["is_git"])
 
     def test_check_git_status_live_repo(self):
-        try:
-            subprocess.run(["git", "init"], cwd=self.test_dir, check=True, capture_output=True)
-            subprocess.run(["git", "config", "user.name", "TestUser"], cwd=self.test_dir, check=True, capture_output=True)
-            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=self.test_dir, check=True, capture_output=True)
-            
-            # Initial clean state with initial commit
-            sample_file = os.path.join(self.test_dir, "sample.txt")
-            with open(sample_file, "w") as f:
-                f.write("init")
-            subprocess.run(["git", "add", "."], cwd=self.test_dir, check=True, capture_output=True)
-            subprocess.run(["git", "commit", "-m", "init"], cwd=self.test_dir, check=True, capture_output=True)
+        if not shutil.which("git"):
+            self.skipTest("git is not available")
+        subprocess.run(["git", "init"], cwd=self.test_dir, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "TestUser"], cwd=self.test_dir, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=self.test_dir, check=True, capture_output=True)
 
-            info = check_health.check_git_status(self.test_dir)
-            self.assertTrue(info["is_git"])
-            self.assertTrue(info["is_clean"])
-            self.assertEqual(info["dirty_files_count"], 0)
+        # Initial clean state with initial commit
+        sample_file = os.path.join(self.test_dir, "sample.txt")
+        with open(sample_file, "w") as f:
+            f.write("init")
+        subprocess.run(["git", "add", "."], cwd=self.test_dir, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=self.test_dir, check=True, capture_output=True)
 
-            # Create dirty file
-            with open(sample_file, "a") as f:
-                f.write("modified")
-            info_dirty = check_health.check_git_status(self.test_dir)
-            self.assertFalse(info_dirty["is_clean"])
-            self.assertEqual(info_dirty["dirty_files_count"], 1)
-        except Exception:
-            pass
+        info = check_health.check_git_status(self.test_dir)
+        self.assertTrue(info["is_git"])
+        self.assertTrue(info["is_clean"])
+        self.assertEqual(info["dirty_files_count"], 0)
+
+        # Create dirty file
+        with open(sample_file, "a") as f:
+            f.write("modified")
+        info_dirty = check_health.check_git_status(self.test_dir)
+        self.assertFalse(info_dirty["is_clean"])
+        self.assertEqual(info_dirty["dirty_files_count"], 1)
 
     def test_scripts_package_import(self):
         import scripts
@@ -472,6 +470,100 @@ class TestCheckHealth(unittest.TestCase):
                 check_health.main()
             output = buf.getvalue()
             self.assertIn("Error detail: command timed out", output)
+
+    def test_detect_monorepo_tolerates_unreadable_manifests(self):
+        # Directories with manifest names trigger the exception fallbacks.
+        os.makedirs(os.path.join(self.test_dir, "package.json"))
+        os.makedirs(os.path.join(self.test_dir, "Cargo.toml"))
+        self.assertEqual(check_health.detect_monorepo(self.test_dir), [])
+
+    def test_parse_package_json_tolerates_invalid_json_and_uses_npx(self):
+        os.makedirs(os.path.join(self.test_dir, "package.json"))
+        with patch("shutil.which", return_value=None):
+            lint_cmd, test_cmd, cov_cmd = check_health.parse_package_json(self.test_dir, "npm")
+        self.assertEqual(lint_cmd, "npx eslint .")
+        self.assertEqual(test_cmd, "npm test")
+        self.assertEqual(cov_cmd, "npm test -- --coverage")
+
+    def test_python_runner_detection_uv_and_pdm(self):
+        Path(os.path.join(self.test_dir, "pyproject.toml")).touch()
+        Path(os.path.join(self.test_dir, "uv.lock")).touch()
+        with patch("shutil.which", return_value="/usr/bin/tool"):
+            python_stack = [s for s in check_health.detect_stack(self.test_dir) if s["name"] == "Python"][0]
+        self.assertTrue(python_stack["lint_cmd"].startswith("uv run"))
+
+        os.remove(os.path.join(self.test_dir, "uv.lock"))
+        Path(os.path.join(self.test_dir, "pdm.lock")).touch()
+        with patch("shutil.which", return_value="/usr/bin/tool"):
+            python_stack = [s for s in check_health.detect_stack(self.test_dir) if s["name"] == "Python"][0]
+        self.assertTrue(python_stack["lint_cmd"].startswith("pdm run"))
+
+    def test_python_stack_flake8_fallback(self):
+        Path(os.path.join(self.test_dir, "pyproject.toml")).touch()
+
+        def fake_which(name):
+            return "/usr/bin/flake8" if name == "flake8" else None
+
+        with patch("shutil.which", side_effect=fake_which):
+            python_stack = [s for s in check_health.detect_stack(self.test_dir) if s["name"] == "Python"][0]
+        self.assertIn("flake8", python_stack["lint_cmd"])
+
+    def test_check_git_status_handles_subprocess_failure(self):
+        with patch("shutil.which", return_value="/usr/bin/git"), \
+             patch("subprocess.run", side_effect=RuntimeError("git exploded")):
+            info = check_health.check_git_status(self.test_dir)
+        self.assertFalse(info["is_git"])
+        self.assertIn("git exploded", info["git_error"])
+
+    def test_check_git_status_detached_head_fallback(self):
+        def fake_run(cmd, *args, **kwargs):
+            cmd_str = " ".join(cmd)
+            if "rev-parse --is-inside-work-tree" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="true\n")
+            if "branch --show-current" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="\n")
+            if "rev-parse --short HEAD" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="unknown revision")
+            if "status --porcelain" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="")
+            return subprocess.CompletedProcess(cmd, 0, stdout="")
+
+        with patch("shutil.which", return_value="/usr/bin/git"), patch("subprocess.run", side_effect=fake_run):
+            info = check_health.check_git_status(self.test_dir)
+        self.assertEqual(info["branch"], "HEAD (detached)")
+
+    def test_run_baseline_command_reports_exceptions(self):
+        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("slow-command", 120)):
+            res = check_health.run_baseline_command("slow-command", self.test_dir)
+        self.assertFalse(res["success"])
+        self.assertIn("error", res)
+
+    def test_main_console_reports_health_warnings(self):
+        import io
+        from contextlib import redirect_stdout
+
+        fake_git = {
+            "is_git": True,
+            "branch": "main",
+            "is_protected_branch": True,
+            "is_clean": False,
+            "dirty_files_count": 2,
+        }
+        with patch.object(check_health, "detect_monorepo", return_value=["Turborepo"]), \
+             patch.object(check_health, "detect_stack", return_value=[]), \
+             patch.object(check_health, "check_git_status", return_value=fake_git), \
+             patch.object(check_health, "check_gitignore", return_value=(False, "not ignored", ".gitignore")), \
+             patch("sys.argv", ["check_health.py"]):
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                check_health.main()
+        output = buf.getvalue()
+        self.assertIn("Monorepo (Turborepo)", output)
+        self.assertIn("No standard tech stack", output)
+        self.assertIn("PROTECTED BRANCH", output)
+        self.assertIn("DIRTY", output)
+        self.assertIn("NOT found in .gitignore", output)
+
 
 if __name__ == "__main__":
     unittest.main()
