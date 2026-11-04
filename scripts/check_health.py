@@ -355,9 +355,41 @@ def check_git_status(cwd):
         
     return result
 
+def git_reports_ignored(cwd):
+    """Return Git's authoritative ignore verdict for IMPROVEMENTS.md.
+
+    Returns True/False when Git can answer, or None when Git is unavailable or
+    the directory is not a work tree (callers then fall back to pattern
+    matching). This matters on case-sensitive filesystems, where a pattern such
+    as ``improvements.md`` does not actually ignore ``IMPROVEMENTS.md``.
+    """
+    if not shutil.which("git"):
+        return None
+    try:
+        probe = subprocess.run(
+            ["git", "check-ignore", "-q", "--", "IMPROVEMENTS.md"],
+            cwd=cwd,
+            capture_output=True,
+            timeout=15,
+            check=False,
+        )
+    except Exception:
+        return None
+    if probe.returncode == 0:
+        return True
+    if probe.returncode == 1:
+        return False
+    return None
+
 def check_gitignore(cwd):
     """Inspect .gitignore configuration to ensure IMPROVEMENTS.md is ignored."""
     gitignore_path = os.path.join(cwd, ".gitignore")
+    git_ignored = git_reports_ignored(cwd)
+    if git_ignored is not None:
+        if git_ignored:
+            return True, "Confirmed ignored by git check-ignore", gitignore_path
+        return False, "Not ignored by git check-ignore", gitignore_path
+
     if not os.path.exists(gitignore_path):
         return False, "Missing .gitignore file", gitignore_path
     

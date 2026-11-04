@@ -210,6 +210,36 @@ class TestCheckHealth(unittest.TestCase):
         self.assertTrue(is_ignored)
         self.assertIn("Found matching ignore pattern", msg)
 
+    def test_check_gitignore_uses_case_sensitive_git_verdict(self):
+        if not shutil.which("git"):
+            self.skipTest("git is not available")
+        try:
+            subprocess.run(["git", "init"], cwd=self.test_dir, check=True, capture_output=True)
+            # Simulate Linux semantics even when the developer runs on Windows.
+            subprocess.run(
+                ["git", "config", "core.ignorecase", "false"],
+                cwd=self.test_dir,
+                check=True,
+                capture_output=True,
+            )
+        except Exception as exc:
+            self.skipTest(f"git init failed: {exc}")
+
+        gitignore = os.path.join(self.test_dir, ".gitignore")
+        with open(gitignore, "w", encoding="utf-8") as f:
+            f.write("improvements.md\n")
+
+        is_ignored, msg, _ = check_health.check_gitignore(self.test_dir)
+        self.assertFalse(is_ignored, "case-sensitive git must not ignore IMPROVEMENTS.md")
+        self.assertIn("check-ignore", msg)
+
+        with open(gitignore, "w", encoding="utf-8") as f:
+            f.write("IMPROVEMENTS.md\n")
+
+        is_ignored, msg, _ = check_health.check_gitignore(self.test_dir)
+        self.assertTrue(is_ignored)
+        self.assertIn("Confirmed ignored", msg)
+
     def test_add_to_gitignore_sandbox_check(self):
         # Normal add
         self.assertTrue(check_health.add_to_gitignore(self.test_dir))
