@@ -40,6 +40,12 @@ Repository = "https://github.com/Aclguh/codebase-audit-and-improve.git"
 check-health = "scripts.check_health:main"
 track-progress = "scripts.track_progress:main"
 
+[project.optional-dependencies]
+dev = [
+    "coverage>=7.0",
+    "ruff>=0.17.0",
+]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["scripts*"]
@@ -52,3 +58,6 @@ python_files = ["test_*.py"]
 [tool.ruff]
 line-length = 120
 target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]

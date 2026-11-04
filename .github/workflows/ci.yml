@@ -35,8 +35,16 @@ jobs:
       - name: Verify Package Import & Modules
         run: python -c "import scripts; assert hasattr(scripts, 'check_health') and hasattr(scripts, 'track_progress')"
 
-      - name: Run Unit Tests
-        run: python -m unittest discover
+      - name: Install Lint & Coverage Tools
+        run: python -m pip install "ruff==0.17.3" "coverage>=7"
+
+      - name: Static Analysis (ruff)
+        run: python -m ruff check .
+
+      - name: Run Unit Tests with Coverage
+        run: |
+          python -m coverage run --source=scripts -m unittest discover
+          python -m coverage report --fail-under=90 --show-missing
 
       - name: Install Package in Editable Mode
         run: pip install -e .
@@ -63,3 +71,22 @@ jobs:
       - name: Verify PowerShell Script Help Output (Windows)
         if: runner.os == 'Windows'
         run: powershell -ExecutionPolicy Bypass -File install.ps1 -Help
+
+      - name: Verify PowerShell Workspace Install (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $TestDir = Join-Path $env:RUNNER_TEMP "install-smoke"
+          New-Item -ItemType Directory -Path $TestDir -Force | Out-Null
+          Push-Location $TestDir
+          try {
+            powershell -ExecutionPolicy Bypass -File "$env:GITHUB_WORKSPACE\install.ps1" -Target Claude -Workspace
+            if ($LASTEXITCODE -ne 0) { throw "install.ps1 failed with exit code $LASTEXITCODE" }
+            foreach ($Name in @("improve", "improve-all")) {
+              $SkillFile = Join-Path $TestDir ".claude\skills\$Name\SKILL.md"
+              if (-not (Test-Path $SkillFile)) { throw "Missing installed skill file: $SkillFile" }
+            }
+            Write-Host "PowerShell workspace install OK"
+          } finally {
+            Pop-Location
+          }

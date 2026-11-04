@@ -6,6 +6,13 @@ set -e
 
 TARGET="all"
 WORKSPACE=false
+VALID_TARGETS="antigravity claude cursor continue deepseek codex all"
+
+die() {
+    echo "Error: $*" >&2
+    echo "Run ./install.sh --help for usage." >&2
+    exit 2
+}
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -24,9 +31,11 @@ while [ $# -gt 0 ]; do
             ;;
         --target=*)
             TARGET="${1#*=}"
+            [ -n "${TARGET}" ] || die "Option --target requires a value"
             shift
             ;;
         -t|--target)
+            [ $# -ge 2 ] && [ -n "$2" ] || die "Option $1 requires a value"
             TARGET="$2"
             shift 2
             ;;
@@ -34,15 +43,32 @@ while [ $# -gt 0 ]; do
             TARGET="$1"
             shift
             ;;
+        -*)
+            die "Unknown option: $1"
+            ;;
         *)
-            shift
+            die "Unknown target: $1"
             ;;
     esac
 done
 
+TARGET_LOWER=$(printf '%s' "$TARGET" | tr '[:upper:]' '[:lower:]')
+case " ${VALID_TARGETS} " in
+    *" ${TARGET_LOWER} "*) ;;
+    *) die "Invalid target '${TARGET}'. Valid targets: ${VALID_TARGETS}" ;;
+esac
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CURRENT_DIR="$(pwd)"
 USER_HOME="${HOME}"
+
+if [ "${WORKSPACE}" = true ]; then
+    [ -n "${CURRENT_DIR}" ] && [ "${CURRENT_DIR}" != "/" ] || die "Refusing to install into the filesystem root"
+else
+    [ -n "${USER_HOME}" ] || die "HOME is not set; use --workspace or set HOME"
+    [ "${USER_HOME}" != "/" ] || die "Refusing to install into root HOME; use --workspace"
+    [ -d "${USER_HOME}" ] || die "HOME directory does not exist: ${USER_HOME}"
+fi
 
 install_skill_files() {
     local dest="$1"
@@ -51,6 +77,22 @@ install_skill_files() {
         echo "Error: Invalid destination path '${dest}'" >&2
         return 1
     fi
+    case "${dest}" in
+        "${CURRENT_DIR}"/*) ;;
+        *)
+            if [ -z "${USER_HOME}" ] || [ "${USER_HOME}" = "/" ]; then
+                echo "Error: Refusing destination outside expected install roots: ${dest}" >&2
+                return 1
+            fi
+            case "${dest}" in
+                "${USER_HOME}"/*) ;;
+                *)
+                    echo "Error: Refusing destination outside expected install roots: ${dest}" >&2
+                    return 1
+                    ;;
+            esac
+            ;;
+    esac
     mkdir -p "${dest}"
     rm -rf "${dest:?}"/*
     cp -R "${SCRIPT_DIR}/references" "${dest}/"
@@ -202,8 +244,6 @@ echo "================================================="
 echo "Codebase Audit & Improve: Multi-Agent Installer"
 echo "Target: ${TARGET} | Workspace: ${WORKSPACE}"
 echo "================================================="
-
-TARGET_LOWER=$(echo "$TARGET" | tr '[:upper:]' '[:lower:]')
 
 if [ "$TARGET_LOWER" == "all" ] || [ "$TARGET_LOWER" == "antigravity" ]; then install_antigravity; fi
 if [ "$TARGET_LOWER" == "all" ] || [ "$TARGET_LOWER" == "claude" ]; then install_claude; fi

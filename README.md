@@ -80,6 +80,9 @@ chmod +x install.sh && ./install.sh all
 
 *Tip: You can also specify an individual agent target: `-Target Claude`, `-Target Codex`, `-Target Cursor`, `-Target DeepSeek`, `-Target Antigravity`, or `-Target Continue`.*
 
+Misspelled targets and unknown options are rejected with a non-zero exit code instead of silently
+falling back to `all`; `--target` / `-t` always requires a value.
+
 ### 2. Workspace-Only Installation (Committed to your project repository)
 
 Generate the commands and skills directly in your current repository workspace so any team member using Claude Code, Codex, Cursor, DeepSeek Harness, Antigravity, or Continue gets immediate `/` autocompletion:
@@ -163,7 +166,8 @@ codebase-audit-and-improve/
 │   └── cursor/                  # Cursor IDE command templates
 ├── tests/                       # Automated test suite
 │   ├── test_check_health.py     # Unit tests for health inspector
-│   └── test_track_progress.py   # Unit tests for progress tracker
+│   ├── test_track_progress.py   # Unit tests for progress tracker
+│   └── test_install_sh.py       # install.sh argument & installation tests
 └── examples/
     └── sample-improvements.md   # Production-grade sample IMPROVEMENTS.md
 ```
@@ -180,6 +184,13 @@ python scripts/check_health.py --json
 # Automatically ensure IMPROVEMENTS.md is in .gitignore
 python scripts/check_health.py --fix-gitignore
 
+# Run detected linters and test runners to record a baseline
+python scripts/check_health.py --run-baseline
+
+# Show all options and exit codes
+python scripts/check_health.py --help
+python scripts/track_progress.py --help
+
 # Analyze progress and completion rates in IMPROVEMENTS.md
 python scripts/track_progress.py IMPROVEMENTS.md
 
@@ -188,6 +199,23 @@ python scripts/track_progress.py --check
 
 # Run automated test suite
 python -m unittest discover tests
+```
+
+Inside a Git work tree, `.gitignore` protection is verified with `git check-ignore`, so a rule that
+does not actually match on a case-sensitive filesystem is reported as unprotected.
+
+## Local Development & Quality Gates
+
+```bash
+# Install the package with development tooling
+python -m pip install -e ".[dev]"
+
+# Static analysis (CI pins ruff 0.17.3 and uses the E4/E7/E9/F rule set)
+python -m ruff check .
+
+# Full suite with the same coverage gate as CI (>= 90% for scripts/)
+python -m coverage run --source=scripts -m unittest discover
+python -m coverage report --fail-under=90 --show-missing
 ```
 
 ## License
