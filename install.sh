@@ -6,6 +6,13 @@ set -e
 
 TARGET="all"
 WORKSPACE=false
+VALID_TARGETS="antigravity claude cursor continue deepseek codex all"
+
+die() {
+    echo "Error: $*" >&2
+    echo "Run ./install.sh --help for usage." >&2
+    exit 2
+}
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -24,9 +31,11 @@ while [ $# -gt 0 ]; do
             ;;
         --target=*)
             TARGET="${1#*=}"
+            [ -n "${TARGET}" ] || die "Option --target requires a value"
             shift
             ;;
         -t|--target)
+            [ $# -ge 2 ] && [ -n "$2" ] || die "Option $1 requires a value"
             TARGET="$2"
             shift 2
             ;;
@@ -34,11 +43,20 @@ while [ $# -gt 0 ]; do
             TARGET="$1"
             shift
             ;;
+        -*)
+            die "Unknown option: $1"
+            ;;
         *)
-            shift
+            die "Unknown target: $1"
             ;;
     esac
 done
+
+TARGET_LOWER=$(printf '%s' "$TARGET" | tr '[:upper:]' '[:lower:]')
+case " ${VALID_TARGETS} " in
+    *" ${TARGET_LOWER} "*) ;;
+    *) die "Invalid target '${TARGET}'. Valid targets: ${VALID_TARGETS}" ;;
+esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CURRENT_DIR="$(pwd)"
@@ -202,8 +220,6 @@ echo "================================================="
 echo "Codebase Audit & Improve: Multi-Agent Installer"
 echo "Target: ${TARGET} | Workspace: ${WORKSPACE}"
 echo "================================================="
-
-TARGET_LOWER=$(echo "$TARGET" | tr '[:upper:]' '[:lower:]')
 
 if [ "$TARGET_LOWER" == "all" ] || [ "$TARGET_LOWER" == "antigravity" ]; then install_antigravity; fi
 if [ "$TARGET_LOWER" == "all" ] || [ "$TARGET_LOWER" == "claude" ]; then install_claude; fi
