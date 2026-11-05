@@ -412,6 +412,18 @@ class TestCheckHealth(unittest.TestCase):
                 self.assertIn("--json", output)
                 self.assertIn("--run-baseline", output)
 
+    def test_unknown_cli_option_is_rejected(self):
+        import io
+        from contextlib import redirect_stderr
+
+        with patch("sys.argv", ["check_health.py", "--jsn"]):
+            err = io.StringIO()
+            with redirect_stderr(err), self.assertRaises(SystemExit) as cm:
+                check_health.main()
+        self.assertEqual(cm.exception.code, 2)
+        self.assertIn("Unknown option", err.getvalue())
+        self.assertIn("--jsn", err.getvalue())
+
     def test_check_git_status_protected_branch_patterns(self):
         for branch_name, expected_protected in [
             ("main", True),
@@ -498,6 +510,25 @@ class TestCheckHealth(unittest.TestCase):
             python_stack = [s for s in check_health.detect_stack(self.test_dir) if s["name"] == "Python"][0]
         self.assertTrue(python_stack["lint_cmd"].startswith("pdm run"))
 
+    def test_managed_runner_uses_python_dash_m_for_modules(self):
+        Path(os.path.join(self.test_dir, "pyproject.toml")).touch()
+        Path(os.path.join(self.test_dir, "poetry.lock")).touch()
+        os.makedirs(os.path.join(self.test_dir, "tests"), exist_ok=True)
+        Path(os.path.join(self.test_dir, "tests", "test_demo.py")).touch()
+
+        def fake_which(name):
+            return "/usr/bin/poetry" if name == "poetry" else None
+
+        with patch("shutil.which", side_effect=fake_which):
+            python_stack = [s for s in check_health.detect_stack(self.test_dir) if s["name"] == "Python"][0]
+
+        self.assertEqual(python_stack["lint_cmd"], "poetry run python -m compileall -q .")
+        self.assertEqual(python_stack["test_cmd"], "poetry run python -m unittest discover -s tests")
+        self.assertEqual(
+            python_stack["coverage_cmd"],
+            "poetry run python -m coverage run -m unittest discover -s tests",
+        )
+
     def test_python_stack_flake8_fallback(self):
         Path(os.path.join(self.test_dir, "pyproject.toml")).touch()
 
@@ -531,6 +562,50 @@ class TestCheckHealth(unittest.TestCase):
         with patch("shutil.which", return_value="/usr/bin/git"), patch("subprocess.run", side_effect=fake_run):
             info = check_health.check_git_status(self.test_dir)
         self.assertEqual(info["branch"], "HEAD (detached)")
+
+    def test_check_git_status_fails_closed_when_status_fails(self):
+        def fake_run(cmd, *args, **kwargs):
+            cmd_str = " ".join(cmd)
+            if "rev-parse --is-inside-work-tree" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="true\n")
+            if "branch --show-current" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="feature/demo\n")
+            if "status --porcelain" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 128, stdout="", stderr="fatal: index file corrupt\n")
+            if "remote get-url origin" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="https://github.com/org/repo\n")
+            return subprocess.CompletedProcess(cmd, 0, stdout="")
+
+        with patch("shutil.which", return_value="/usr/bin/git"), patch("subprocess.run", side_effect=fake_run):
+            info = check_health.check_git_status(self.test_dir)
+
+        self.assertTrue(info["is_git"])
+        self.assertFalse(info["is_clean"])
+        self.assertIn("index file corrupt", info["status_error"])
+
+    def test_main_console_reports_unknown_git_status(self):
+        import io
+        from contextlib import redirect_stdout
+
+        fake_git = {
+            "is_git": True,
+            "branch": "main",
+            "is_protected_branch": False,
+            "is_clean": False,
+            "dirty_files_count": 0,
+            "status_error": "fatal: index file corrupt",
+        }
+        with patch.object(check_health, "detect_monorepo", return_value=[]), \
+             patch.object(check_health, "detect_stack", return_value=[]), \
+             patch.object(check_health, "check_git_status", return_value=fake_git), \
+             patch.object(check_health, "check_gitignore", return_value=(True, "ok", ".gitignore")), \
+             patch("sys.argv", ["check_health.py"]):
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                check_health.main()
+        output = buf.getvalue()
+        self.assertIn("Unable to verify working tree status", output)
+        self.assertNotIn("Working tree is clean", output)
 
     def test_run_baseline_command_reports_exceptions(self):
         with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("slow-command", 120)):

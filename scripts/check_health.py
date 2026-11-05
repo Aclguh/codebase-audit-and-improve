@@ -168,9 +168,14 @@ def detect_stack(cwd):
         elif os.path.exists(os.path.join(cwd, "pdm.lock")) and shutil.which("pdm"):
             runner = "pdm run"
             
+        # Managed runners (poetry/uv/pdm) do not expose `unittest` or
+        # `compileall` as console scripts, so module-based commands must go
+        # through the interpreter of that environment.
+        module_runner = "python -m" if runner == "python -m" else f"{runner} python -m"
+
         has_tests_dir = os.path.isdir(os.path.join(cwd, "tests"))
-        unittest_cmd = f"{runner} unittest discover -s tests" if has_tests_dir else f"{runner} unittest discover"
-        unittest_cov_cmd = f"{runner} coverage run -m unittest discover -s tests" if has_tests_dir else f"{runner} coverage run -m unittest"
+        unittest_cmd = f"{module_runner} unittest discover -s tests" if has_tests_dir else f"{module_runner} unittest discover"
+        unittest_cov_cmd = f"{module_runner} coverage run -m unittest discover -s tests" if has_tests_dir else f"{module_runner} coverage run -m unittest"
 
         has_ruff = shutil.which("ruff") is not None
         has_flake8 = shutil.which("flake8") is not None
@@ -179,7 +184,7 @@ def detect_stack(cwd):
         elif has_flake8:
             lint_cmd = f"{runner} flake8"
         else:
-            lint_cmd = f"{runner} compileall -q ."
+            lint_cmd = f"{module_runner} compileall -q ."
 
         has_pytest = shutil.which("pytest") is not None
         test_cmd = f"{runner} pytest" if has_pytest else unittest_cmd
@@ -315,8 +320,8 @@ def check_git_status(cwd):
         result["is_git"] = True
 
         # Check branch
-        p_branch = subprocess.run(["git", "branch", "--show-current"], cwd=cwd, capture_output=True, text=True, check=True, timeout=15)
-        branch = p_branch.stdout.strip()
+        p_branch = subprocess.run(["git", "branch", "--show-current"], cwd=cwd, capture_output=True, text=True, timeout=15)
+        branch = p_branch.stdout.strip() if p_branch.returncode == 0 else ""
         if not branch:
             p_head = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=cwd, capture_output=True, text=True, timeout=15)
             if p_head.returncode == 0 and p_head.stdout.strip():
@@ -329,12 +334,18 @@ def check_git_status(cwd):
             b_lower in ("main", "master", "release", "prod", "production")
             or b_lower.startswith(("release/", "releases/", "prod/", "production/", "release-", "prod-"))
         )
-        
-        # Check dirty working tree
-        p_status = subprocess.run(["git", "status", "--porcelain"], cwd=cwd, capture_output=True, text=True, check=True, timeout=15)
-        dirty_lines = [line for line in p_status.stdout.splitlines() if line.strip()]
-        result["is_clean"] = len(dirty_lines) == 0
-        result["dirty_files_count"] = len(dirty_lines)
+
+        # Check dirty working tree. If git status cannot be trusted, fail closed
+        # instead of reporting a clean tree to the pre-flight safety guard.
+        p_status = subprocess.run(["git", "status", "--porcelain"], cwd=cwd, capture_output=True, text=True, timeout=15)
+        if p_status.returncode != 0:
+            detail = (p_status.stderr or p_status.stdout).strip()
+            result["is_clean"] = False
+            result["status_error"] = detail or f"git status exited with code {p_status.returncode}"
+        else:
+            dirty_lines = [line for line in p_status.stdout.splitlines() if line.strip()]
+            result["is_clean"] = len(dirty_lines) == 0
+            result["dirty_files_count"] = len(dirty_lines)
         
         # Check remote origin
         p_remote = subprocess.run(["git", "remote", "get-url", "origin"], cwd=cwd, capture_output=True, text=True, timeout=15)
@@ -463,6 +474,13 @@ def main():
         print("  -h, --help       Show this help message and exit")
         return
 
+    valid_flags = {"--json", "--run-baseline", "--fix-gitignore"}
+    unknown = [arg for arg in sys.argv[1:] if arg not in valid_flags]
+    if unknown:
+        print(f"[!] Error: Unknown option(s): {', '.join(unknown)}", file=sys.stderr)
+        print("Run 'python scripts/check_health.py --help' for usage.", file=sys.stderr)
+        sys.exit(2)
+
     cwd = os.getcwd()
     as_json = "--json" in sys.argv
     run_baseline = "--run-baseline" in sys.argv
@@ -539,7 +557,10 @@ def main():
         if git_info["is_protected_branch"]:
             branch_desc += " [PROTECTED BRANCH - Recommendation: create feature branch for PR]"
         print(f"  - Current Branch: {branch_desc}")
-        if git_info["is_clean"]:
+        if git_info.get("status_error"):
+            print(f"  ✗ Unable to verify working tree status: {git_info['status_error']}")
+            print("    Recommendation: Resolve the git error before starting.")
+        elif git_info["is_clean"]:
             print("  ✓ Working tree is clean (Safe to start atomic loop)")
         else:
             print(f"  ✗ Working tree is DIRTY ({git_info['dirty_files_count']} uncommitted file(s)!)")

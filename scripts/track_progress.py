@@ -22,12 +22,29 @@ if hasattr(sys.stderr, 'reconfigure'):
     except Exception:
         pass
 
+# Priority tokens must stand alone: "P2P" and "OPT-01" are not priorities.
+PRIORITY_TOKEN_RE = re.compile(r'(?i)(?<![A-Za-z0-9])(P\d+)(?![A-Za-z0-9])')
+
 def clean_cell(text):
-    """Strip markdown bolding, italics, backticks and extra whitespace."""
+    """Strip markdown emphasis while preserving identifier characters.
+
+    Only paired (wrapping or inline) markers are removed, so names such as
+    ``parse_package_json`` and IDs such as ``OPT_01`` keep their underscores.
+    """
     if not text:
         return ""
     cleaned = text.strip()
-    cleaned = re.sub(r'[*`_~]', '', cleaned)
+    # Peel wrapping emphasis/code markers repeatedly: **x**, *x*, __x__, _x_, ~~x~~, `x`
+    wrapping = re.compile(r'^(\*{1,3}|_{1,3}|~{1,2}|`+)(.+?)\1$', re.DOTALL)
+    while True:
+        match = wrapping.match(cleaned)
+        if not match:
+            break
+        cleaned = match.group(2).strip()
+    # Remove inline code spans and paired bold/strikethrough markers anywhere.
+    cleaned = re.sub(r'`([^`]+)`', r'\1', cleaned)
+    cleaned = re.sub(r'\*\*(.+?)\*\*', r'\1', cleaned)
+    cleaned = re.sub(r'~~(.+?)~~', r'\1', cleaned)
     return cleaned.strip()
 
 def is_status_done(val):
@@ -42,6 +59,22 @@ def is_status_done(val):
         return True
     # Strip markdown markers
     clean_v = clean_cell(val).lower()
+    # A completion keyword directly followed by a percentage or fraction is a
+    # progress update, not a finished task ("完成 80%", "Completed 3/5").
+    progress = re.match(
+        r'^(?:done|completed|complete|pass|passed|finished|ok|resolved|fixed|closed|merged|success|implemented'
+        r'|已?完成|已?解决|已?修复|已?实现|已?通过)\s*[度率]?\s*[:：]?\s*'
+        r'(?:(\d+(?:\.\d+)?)\s*%|(\d+)\s*/\s*(\d+))',
+        clean_v,
+    )
+    if progress:
+        if progress.group(1) is not None:
+            completed_ratio = float(progress.group(1)) / 100
+        else:
+            denominator = int(progress.group(3))
+            completed_ratio = (int(progress.group(2)) / denominator) if denominator else 0
+        if completed_ratio < 1:
+            return False
     # Check if cleaned text starts with standard completion keywords (even if followed by commit hash, PR, or note)
     if re.match(r'^(?:done|completed|complete|pass|passed|finished|ok|resolved|fixed|closed|merged|success|implemented|yes|true)\b', clean_v):
         return True
@@ -174,7 +207,7 @@ def parse_improvements_file(filepath):
                     
                 task_id = clean_cell(raw_cells[id_idx]) if (id_idx is not None and id_idx < len(raw_cells)) else f"TASK-{len(tasks)+1:02d}"
                 raw_prio = clean_cell(raw_cells[prio_idx]).upper() if (prio_idx is not None and prio_idx < len(raw_cells)) else "P2"
-                m_prio = re.search(r'(?i)\b(P\d+)(?=[^\d]|$)', raw_prio)
+                m_prio = PRIORITY_TOKEN_RE.search(raw_prio)
                 priority = m_prio.group(1).upper() if m_prio else "P2"
                 name = clean_cell(raw_cells[name_idx]) if (name_idx is not None and name_idx < len(raw_cells)) else ""
                 
@@ -204,10 +237,15 @@ def parse_improvements_file(filepath):
 
             # Priority extraction: e.g. [P0], **[P0]**, **P0**, (P0), [P0级]
             priority = "GENERAL"
-            m_prio = re.search(r'(?i)\b(P\d+)(?=[^\d]|$)', rest)
+            m_prio = PRIORITY_TOKEN_RE.search(rest)
             if m_prio:
                 priority = m_prio.group(1).upper()
-                rest = re.sub(r'[*_`\[(]*' + re.escape(m_prio.group(0)) + r'[*_`\])]*[:：\-\s]*', '', rest, count=1).strip()
+                # Consume the surrounding emphasis/brackets and a trailing "级"
+                # qualifier so "[P0级] OPT-07" leaves the task ID intact.
+                rest = re.sub(
+                    r'[*_`\[(]*' + re.escape(m_prio.group(0)) + r'(?:\s*级)?[*_`\])]*[:：\-\s]*',
+                    '', rest, count=1
+                ).strip()
 
             # Task ID extraction: e.g. [OPT-01], **OPT-01**, OPT-01, TASK-01
             task_id = None
@@ -252,11 +290,21 @@ def main():
         print("  -h, --help       Show this help message and exit")
         sys.exit(0)
 
+    known_flags = {"--check", "--json", "--quiet"}
+    unknown_flags = [a for a in args if a.startswith("-") and a not in known_flags]
+    if unknown_flags:
+        print(f"[!] Error: Unknown option(s): {', '.join(unknown_flags)}", file=sys.stderr)
+        print("Run 'python scripts/track_progress.py --help' for usage.", file=sys.stderr)
+        sys.exit(2)
+
     as_json = "--json" in args
     check_mode = "--check" in args
     quiet = "--quiet" in args
-    
-    file_args = [a for a in args if not a.startswith("--")]
+
+    file_args = [a for a in args if not a.startswith("-")]
+    if len(file_args) > 1:
+        print(f"[!] Error: Expected at most one roadmap file, got {len(file_args)}: {', '.join(file_args)}", file=sys.stderr)
+        sys.exit(2)
     target_file = file_args[0] if file_args else "IMPROVEMENTS.md"
     
     tasks, err = parse_improvements_file(target_file)

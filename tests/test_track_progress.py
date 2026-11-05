@@ -59,6 +59,30 @@ class TestTrackProgress(unittest.TestCase):
         self.assertFalse(track_progress.is_status_done(""))
         self.assertFalse(track_progress.is_status_done(None))
 
+    def test_progress_status_is_not_done(self):
+        for val in [
+            "完成 80% of refactor",
+            "完成度 50%",
+            "通过率 50%",
+            "已完成 80%",
+            "已解决: 99%",
+            "Completed 3/5",
+            "Done 0/3",
+            "done: 99%",
+        ]:
+            self.assertFalse(track_progress.is_status_done(val), f"Failed for {val}")
+
+        # A genuine completion description that merely mentions a number stays done.
+        for val in [
+            "Done 100%",
+            "完成 100%",
+            "Done (PR #2, 50% faster)",
+            "完成 (feat: cache)",
+            "Completed",
+            "已完成 (PR #2)",
+        ]:
+            self.assertTrue(track_progress.is_status_done(val), f"Failed for {val}")
+
     def test_standard_table_parsing(self):
         content = """# Roadmap
 | 优先级 | 任务标识 | 任务名称 | 核心收益 | 涉及文件 | 状态 |
@@ -306,6 +330,46 @@ class TestTrackProgress(unittest.TestCase):
         self.assertEqual(tasks[3]["name"], "IPv6 socket binding")
         self.assertEqual(tasks[4]["id"], "OPT-05")
 
+    def test_checklist_priority_qualifier_keeps_task_id_and_name(self):
+        content = """# Priority Qualifiers
+- [ ] [P0级] OPT-07: Numbered task two
+- [ ] **P1** - **OPT-08** Buffer overflow
+- [ ] P2级 OPT-09: Qualifier without brackets
+"""
+        filepath = os.path.join(self.test_dir, "QUALIFIERS.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 3)
+        self.assertEqual(tasks[0]["priority"], "P0")
+        self.assertEqual(tasks[0]["id"], "OPT-07")
+        self.assertEqual(tasks[0]["name"], "Numbered task two")
+        self.assertEqual(tasks[1]["priority"], "P1")
+        self.assertEqual(tasks[1]["id"], "OPT-08")
+        self.assertEqual(tasks[1]["name"], "Buffer overflow")
+        self.assertEqual(tasks[2]["priority"], "P2")
+        self.assertEqual(tasks[2]["id"], "OPT-09")
+        self.assertEqual(tasks[2]["name"], "Qualifier without brackets")
+
+    def test_priority_token_does_not_match_identifier_text(self):
+        content = """# Identifier Text
+- [ ] Implement P2P networking support
+- [ ] Add P0P failover mode
+"""
+        filepath = os.path.join(self.test_dir, "IDENTIFIERS.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 2)
+        self.assertEqual(tasks[0]["priority"], "GENERAL")
+        self.assertEqual(tasks[0]["name"], "Implement P2P networking support")
+        self.assertEqual(tasks[1]["priority"], "GENERAL")
+        self.assertEqual(tasks[1]["name"], "Add P0P failover mode")
+
     def test_reordered_table_headers_with_aliases(self):
         content = """# Header Aliases Table
 | Severity | Action | Progress | Impact |
@@ -327,9 +391,45 @@ class TestTrackProgress(unittest.TestCase):
         self.assertEqual(tasks[1]["name"], "Enhance test coverage")
         self.assertFalse(tasks[1]["done"])
 
+    def test_clean_cell_preserves_identifier_underscores(self):
+        self.assertEqual(track_progress.clean_cell("parse_package_json"), "parse_package_json")
+        self.assertEqual(track_progress.clean_cell("OPT_01"), "OPT_01")
+        self.assertEqual(track_progress.clean_cell("_OPT-01_"), "OPT-01")
+        self.assertEqual(track_progress.clean_cell("~~parse_package_json~~"), "parse_package_json")
+        self.assertEqual(track_progress.clean_cell("**P0** (Blocker)"), "P0 (Blocker)")
+        self.assertEqual(track_progress.clean_cell("Fix `parse_package_json` helper"), "Fix parse_package_json helper")
+
+    def test_table_task_name_and_id_preserve_underscores(self):
+        content = """| Priority | ID | Task Name | Status |
+| :---: | :---: | :--- | :---: |
+| P1 | OPT_01 | Refactor parse_package_json helper | [ ] |
+"""
+        filepath = os.path.join(self.test_dir, "UNDERSCORES.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 1)
+        self.assertEqual(tasks[0]["id"], "OPT_01")
+        self.assertEqual(tasks[0]["name"], "Refactor parse_package_json helper")
+
     def test_clean_cell_strikethrough(self):
         self.assertEqual(track_progress.clean_cell("~~OPT-01~~"), "OPT-01")
 
+
+    def test_unknown_cli_option_and_extra_files_are_rejected(self):
+        import io
+        from contextlib import redirect_stderr
+
+        for argv in (["track_progress.py", "--chek"], ["track_progress.py", "a.md", "b.md"]):
+            with self.subTest(argv=argv):
+                with patch("sys.argv", argv):
+                    err = io.StringIO()
+                    with redirect_stderr(err), self.assertRaises(SystemExit) as cm:
+                        track_progress.main()
+                self.assertEqual(cm.exception.code, 2)
+                self.assertIn("Error:", err.getvalue())
 
     def test_track_progress_cli_help(self):
         import io
