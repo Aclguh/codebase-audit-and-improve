@@ -412,6 +412,18 @@ class TestCheckHealth(unittest.TestCase):
                 self.assertIn("--json", output)
                 self.assertIn("--run-baseline", output)
 
+    def test_unknown_cli_option_is_rejected(self):
+        import io
+        from contextlib import redirect_stderr
+
+        with patch("sys.argv", ["check_health.py", "--jsn"]):
+            err = io.StringIO()
+            with redirect_stderr(err), self.assertRaises(SystemExit) as cm:
+                check_health.main()
+        self.assertEqual(cm.exception.code, 2)
+        self.assertIn("Unknown option", err.getvalue())
+        self.assertIn("--jsn", err.getvalue())
+
     def test_check_git_status_protected_branch_patterns(self):
         for branch_name, expected_protected in [
             ("main", True),

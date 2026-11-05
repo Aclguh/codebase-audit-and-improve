@@ -474,6 +474,13 @@ def main():
         print("  -h, --help       Show this help message and exit")
         return
 
+    valid_flags = {"--json", "--run-baseline", "--fix-gitignore"}
+    unknown = [arg for arg in sys.argv[1:] if arg not in valid_flags]
+    if unknown:
+        print(f"[!] Error: Unknown option(s): {', '.join(unknown)}", file=sys.stderr)
+        print("Run 'python scripts/check_health.py --help' for usage.", file=sys.stderr)
+        sys.exit(2)
+
     cwd = os.getcwd()
     as_json = "--json" in sys.argv
     run_baseline = "--run-baseline" in sys.argv

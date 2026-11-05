@@ -395,6 +395,19 @@ class TestTrackProgress(unittest.TestCase):
         self.assertEqual(track_progress.clean_cell("~~OPT-01~~"), "OPT-01")
 
 
+    def test_unknown_cli_option_and_extra_files_are_rejected(self):
+        import io
+        from contextlib import redirect_stderr
+
+        for argv in (["track_progress.py", "--chek"], ["track_progress.py", "a.md", "b.md"]):
+            with self.subTest(argv=argv):
+                with patch("sys.argv", argv):
+                    err = io.StringIO()
+                    with redirect_stderr(err), self.assertRaises(SystemExit) as cm:
+                        track_progress.main()
+                self.assertEqual(cm.exception.code, 2)
+                self.assertIn("Error:", err.getvalue())
+
     def test_track_progress_cli_help(self):
         import io
         from contextlib import redirect_stdout

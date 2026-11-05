@@ -276,11 +276,21 @@ def main():
         print("  -h, --help       Show this help message and exit")
         sys.exit(0)
 
+    known_flags = {"--check", "--json", "--quiet"}
+    unknown_flags = [a for a in args if a.startswith("-") and a not in known_flags]
+    if unknown_flags:
+        print(f"[!] Error: Unknown option(s): {', '.join(unknown_flags)}", file=sys.stderr)
+        print("Run 'python scripts/track_progress.py --help' for usage.", file=sys.stderr)
+        sys.exit(2)
+
     as_json = "--json" in args
     check_mode = "--check" in args
     quiet = "--quiet" in args
-    
-    file_args = [a for a in args if not a.startswith("--")]
+
+    file_args = [a for a in args if not a.startswith("-")]
+    if len(file_args) > 1:
+        print(f"[!] Error: Expected at most one roadmap file, got {len(file_args)}: {', '.join(file_args)}", file=sys.stderr)
+        sys.exit(2)
     target_file = file_args[0] if file_args else "IMPROVEMENTS.md"
     
     tasks, err = parse_improvements_file(target_file)
