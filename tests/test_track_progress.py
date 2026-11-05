@@ -391,6 +391,29 @@ class TestTrackProgress(unittest.TestCase):
         self.assertEqual(tasks[1]["name"], "Enhance test coverage")
         self.assertFalse(tasks[1]["done"])
 
+    def test_clean_cell_preserves_identifier_underscores(self):
+        self.assertEqual(track_progress.clean_cell("parse_package_json"), "parse_package_json")
+        self.assertEqual(track_progress.clean_cell("OPT_01"), "OPT_01")
+        self.assertEqual(track_progress.clean_cell("_OPT-01_"), "OPT-01")
+        self.assertEqual(track_progress.clean_cell("~~parse_package_json~~"), "parse_package_json")
+        self.assertEqual(track_progress.clean_cell("**P0** (Blocker)"), "P0 (Blocker)")
+        self.assertEqual(track_progress.clean_cell("Fix `parse_package_json` helper"), "Fix parse_package_json helper")
+
+    def test_table_task_name_and_id_preserve_underscores(self):
+        content = """| Priority | ID | Task Name | Status |
+| :---: | :---: | :--- | :---: |
+| P1 | OPT_01 | Refactor parse_package_json helper | [ ] |
+"""
+        filepath = os.path.join(self.test_dir, "UNDERSCORES.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 1)
+        self.assertEqual(tasks[0]["id"], "OPT_01")
+        self.assertEqual(tasks[0]["name"], "Refactor parse_package_json helper")
+
     def test_clean_cell_strikethrough(self):
         self.assertEqual(track_progress.clean_cell("~~OPT-01~~"), "OPT-01")
 
