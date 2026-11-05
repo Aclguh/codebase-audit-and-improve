@@ -168,9 +168,14 @@ def detect_stack(cwd):
         elif os.path.exists(os.path.join(cwd, "pdm.lock")) and shutil.which("pdm"):
             runner = "pdm run"
             
+        # Managed runners (poetry/uv/pdm) do not expose `unittest` or
+        # `compileall` as console scripts, so module-based commands must go
+        # through the interpreter of that environment.
+        module_runner = "python -m" if runner == "python -m" else f"{runner} python -m"
+
         has_tests_dir = os.path.isdir(os.path.join(cwd, "tests"))
-        unittest_cmd = f"{runner} unittest discover -s tests" if has_tests_dir else f"{runner} unittest discover"
-        unittest_cov_cmd = f"{runner} coverage run -m unittest discover -s tests" if has_tests_dir else f"{runner} coverage run -m unittest"
+        unittest_cmd = f"{module_runner} unittest discover -s tests" if has_tests_dir else f"{module_runner} unittest discover"
+        unittest_cov_cmd = f"{module_runner} coverage run -m unittest discover -s tests" if has_tests_dir else f"{module_runner} coverage run -m unittest"
 
         has_ruff = shutil.which("ruff") is not None
         has_flake8 = shutil.which("flake8") is not None
@@ -179,7 +184,7 @@ def detect_stack(cwd):
         elif has_flake8:
             lint_cmd = f"{runner} flake8"
         else:
-            lint_cmd = f"{runner} compileall -q ."
+            lint_cmd = f"{module_runner} compileall -q ."
 
         has_pytest = shutil.which("pytest") is not None
         test_cmd = f"{runner} pytest" if has_pytest else unittest_cmd

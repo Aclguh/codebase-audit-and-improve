@@ -498,6 +498,25 @@ class TestCheckHealth(unittest.TestCase):
             python_stack = [s for s in check_health.detect_stack(self.test_dir) if s["name"] == "Python"][0]
         self.assertTrue(python_stack["lint_cmd"].startswith("pdm run"))
 
+    def test_managed_runner_uses_python_dash_m_for_modules(self):
+        Path(os.path.join(self.test_dir, "pyproject.toml")).touch()
+        Path(os.path.join(self.test_dir, "poetry.lock")).touch()
+        os.makedirs(os.path.join(self.test_dir, "tests"), exist_ok=True)
+        Path(os.path.join(self.test_dir, "tests", "test_demo.py")).touch()
+
+        def fake_which(name):
+            return "/usr/bin/poetry" if name == "poetry" else None
+
+        with patch("shutil.which", side_effect=fake_which):
+            python_stack = [s for s in check_health.detect_stack(self.test_dir) if s["name"] == "Python"][0]
+
+        self.assertEqual(python_stack["lint_cmd"], "poetry run python -m compileall -q .")
+        self.assertEqual(python_stack["test_cmd"], "poetry run python -m unittest discover -s tests")
+        self.assertEqual(
+            python_stack["coverage_cmd"],
+            "poetry run python -m coverage run -m unittest discover -s tests",
+        )
+
     def test_python_stack_flake8_fallback(self):
         Path(os.path.join(self.test_dir, "pyproject.toml")).touch()
 
