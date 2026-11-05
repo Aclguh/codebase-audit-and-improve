@@ -45,6 +45,22 @@ def is_status_done(val):
         return True
     # Strip markdown markers
     clean_v = clean_cell(val).lower()
+    # A completion keyword directly followed by a percentage or fraction is a
+    # progress update, not a finished task ("完成 80%", "Completed 3/5").
+    progress = re.match(
+        r'^(?:done|completed|complete|pass|passed|finished|ok|resolved|fixed|closed|merged|success|implemented'
+        r'|已?完成|已?解决|已?修复|已?实现|已?通过)\s*[度率]?\s*[:：]?\s*'
+        r'(?:(\d+(?:\.\d+)?)\s*%|(\d+)\s*/\s*(\d+))',
+        clean_v,
+    )
+    if progress:
+        if progress.group(1) is not None:
+            completed_ratio = float(progress.group(1)) / 100
+        else:
+            denominator = int(progress.group(3))
+            completed_ratio = (int(progress.group(2)) / denominator) if denominator else 0
+        if completed_ratio < 1:
+            return False
     # Check if cleaned text starts with standard completion keywords (even if followed by commit hash, PR, or note)
     if re.match(r'^(?:done|completed|complete|pass|passed|finished|ok|resolved|fixed|closed|merged|success|implemented|yes|true)\b', clean_v):
         return True

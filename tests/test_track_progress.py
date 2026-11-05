@@ -59,6 +59,30 @@ class TestTrackProgress(unittest.TestCase):
         self.assertFalse(track_progress.is_status_done(""))
         self.assertFalse(track_progress.is_status_done(None))
 
+    def test_progress_status_is_not_done(self):
+        for val in [
+            "完成 80% of refactor",
+            "完成度 50%",
+            "通过率 50%",
+            "已完成 80%",
+            "已解决: 99%",
+            "Completed 3/5",
+            "Done 0/3",
+            "done: 99%",
+        ]:
+            self.assertFalse(track_progress.is_status_done(val), f"Failed for {val}")
+
+        # A genuine completion description that merely mentions a number stays done.
+        for val in [
+            "Done 100%",
+            "完成 100%",
+            "Done (PR #2, 50% faster)",
+            "完成 (feat: cache)",
+            "Completed",
+            "已完成 (PR #2)",
+        ]:
+            self.assertTrue(track_progress.is_status_done(val), f"Failed for {val}")
+
     def test_standard_table_parsing(self):
         content = """# Roadmap
 | 优先级 | 任务标识 | 任务名称 | 核心收益 | 涉及文件 | 状态 |
