@@ -306,6 +306,46 @@ class TestTrackProgress(unittest.TestCase):
         self.assertEqual(tasks[3]["name"], "IPv6 socket binding")
         self.assertEqual(tasks[4]["id"], "OPT-05")
 
+    def test_checklist_priority_qualifier_keeps_task_id_and_name(self):
+        content = """# Priority Qualifiers
+- [ ] [P0级] OPT-07: Numbered task two
+- [ ] **P1** - **OPT-08** Buffer overflow
+- [ ] P2级 OPT-09: Qualifier without brackets
+"""
+        filepath = os.path.join(self.test_dir, "QUALIFIERS.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 3)
+        self.assertEqual(tasks[0]["priority"], "P0")
+        self.assertEqual(tasks[0]["id"], "OPT-07")
+        self.assertEqual(tasks[0]["name"], "Numbered task two")
+        self.assertEqual(tasks[1]["priority"], "P1")
+        self.assertEqual(tasks[1]["id"], "OPT-08")
+        self.assertEqual(tasks[1]["name"], "Buffer overflow")
+        self.assertEqual(tasks[2]["priority"], "P2")
+        self.assertEqual(tasks[2]["id"], "OPT-09")
+        self.assertEqual(tasks[2]["name"], "Qualifier without brackets")
+
+    def test_priority_token_does_not_match_identifier_text(self):
+        content = """# Identifier Text
+- [ ] Implement P2P networking support
+- [ ] Add P0P failover mode
+"""
+        filepath = os.path.join(self.test_dir, "IDENTIFIERS.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 2)
+        self.assertEqual(tasks[0]["priority"], "GENERAL")
+        self.assertEqual(tasks[0]["name"], "Implement P2P networking support")
+        self.assertEqual(tasks[1]["priority"], "GENERAL")
+        self.assertEqual(tasks[1]["name"], "Add P0P failover mode")
+
     def test_reordered_table_headers_with_aliases(self):
         content = """# Header Aliases Table
 | Severity | Action | Progress | Impact |

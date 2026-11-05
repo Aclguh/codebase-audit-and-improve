@@ -22,6 +22,9 @@ if hasattr(sys.stderr, 'reconfigure'):
     except Exception:
         pass
 
+# Priority tokens must stand alone: "P2P" and "OPT-01" are not priorities.
+PRIORITY_TOKEN_RE = re.compile(r'(?i)(?<![A-Za-z0-9])(P\d+)(?![A-Za-z0-9])')
+
 def clean_cell(text):
     """Strip markdown bolding, italics, backticks and extra whitespace."""
     if not text:
@@ -174,7 +177,7 @@ def parse_improvements_file(filepath):
                     
                 task_id = clean_cell(raw_cells[id_idx]) if (id_idx is not None and id_idx < len(raw_cells)) else f"TASK-{len(tasks)+1:02d}"
                 raw_prio = clean_cell(raw_cells[prio_idx]).upper() if (prio_idx is not None and prio_idx < len(raw_cells)) else "P2"
-                m_prio = re.search(r'(?i)\b(P\d+)(?=[^\d]|$)', raw_prio)
+                m_prio = PRIORITY_TOKEN_RE.search(raw_prio)
                 priority = m_prio.group(1).upper() if m_prio else "P2"
                 name = clean_cell(raw_cells[name_idx]) if (name_idx is not None and name_idx < len(raw_cells)) else ""
                 
@@ -204,10 +207,15 @@ def parse_improvements_file(filepath):
 
             # Priority extraction: e.g. [P0], **[P0]**, **P0**, (P0), [P0级]
             priority = "GENERAL"
-            m_prio = re.search(r'(?i)\b(P\d+)(?=[^\d]|$)', rest)
+            m_prio = PRIORITY_TOKEN_RE.search(rest)
             if m_prio:
                 priority = m_prio.group(1).upper()
-                rest = re.sub(r'[*_`\[(]*' + re.escape(m_prio.group(0)) + r'[*_`\])]*[:：\-\s]*', '', rest, count=1).strip()
+                # Consume the surrounding emphasis/brackets and a trailing "级"
+                # qualifier so "[P0级] OPT-07" leaves the task ID intact.
+                rest = re.sub(
+                    r'[*_`\[(]*' + re.escape(m_prio.group(0)) + r'(?:\s*级)?[*_`\])]*[:：\-\s]*',
+                    '', rest, count=1
+                ).strip()
 
             # Task ID extraction: e.g. [OPT-01], **OPT-01**, OPT-01, TASK-01
             task_id = None
