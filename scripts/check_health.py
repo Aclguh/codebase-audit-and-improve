@@ -153,7 +153,15 @@ def detect_stack(cwd):
         else:
             for candidate_dir in ["tests", "scripts", "src"]:
                 d_path = os.path.join(cwd, candidate_dir)
-                if os.path.isdir(d_path) and any(f.endswith(".py") for f in os.listdir(d_path)):
+                if not os.path.isdir(d_path):
+                    continue
+                try:
+                    entries = os.listdir(d_path)
+                except OSError:
+                    # Unreadable candidate directory (permissions, concurrent
+                    # removal) must not abort the whole stack detection.
+                    continue
+                if any(f.endswith(".py") for f in entries):
                     has_py_source = True
                     manifest_name = f"{candidate_dir}/"
                     break

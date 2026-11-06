@@ -679,6 +679,13 @@ class TestCheckHealth(unittest.TestCase):
                 self.assertIn(expected, data["gitignore"]["message"])
                 self.assertEqual(data["gitignore"]["is_protected"], recheck[0])
 
+    def test_detect_stack_tolerates_unreadable_source_dirs(self):
+        os.makedirs(os.path.join(self.test_dir, "scripts"))
+        Path(os.path.join(self.test_dir, "scripts", "tool.py")).touch()
+        with patch("check_health.os.listdir", side_effect=PermissionError("denied")):
+            stacks = check_health.detect_stack(self.test_dir)
+        self.assertEqual(stacks, [])
+
 
 if __name__ == "__main__":
     unittest.main()
