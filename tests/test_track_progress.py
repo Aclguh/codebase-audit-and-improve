@@ -591,6 +591,34 @@ class TestTrackProgress(unittest.TestCase):
         self.assertEqual(tasks[0]["priority"], "P2")
         self.assertFalse(tasks[0]["done"])
 
+    def test_check_json_gate_reports_pending_and_exits_one(self):
+        pending_file = os.path.join(self.test_dir, "PENDING.md")
+        with open(pending_file, "w", encoding="utf-8") as f:
+            f.write("| 优先级 | 任务标识 | 任务名称 | 状态 |\n| :---: | :---: | :--- | :---: |\n| P0 | OPT-01 | Test | [ ] |\n")
+
+        with patch("sys.argv", ["track_progress.py", pending_file, "--json", "--check"]):
+            out_buf = StringIO()
+            with patch("sys.stdout", out_buf), self.assertRaises(SystemExit) as cm:
+                track_progress.main()
+
+        self.assertEqual(cm.exception.code, 1)
+        data = json.loads(out_buf.getvalue())
+        self.assertEqual(data["pending"], 1)
+        self.assertFalse(data["is_all_completed"])
+
+    def test_quiet_suppresses_report_but_keeps_gate_exit(self):
+        pending_file = os.path.join(self.test_dir, "PENDING.md")
+        with open(pending_file, "w", encoding="utf-8") as f:
+            f.write("| 优先级 | 任务标识 | 任务名称 | 状态 |\n| :---: | :---: | :--- | :---: |\n| P0 | OPT-01 | Test | [ ] |\n")
+
+        with patch("sys.argv", ["track_progress.py", pending_file, "--quiet", "--check"]):
+            out_buf = StringIO()
+            with patch("sys.stdout", out_buf), self.assertRaises(SystemExit) as cm:
+                track_progress.main()
+
+        self.assertEqual(cm.exception.code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+
 
 if __name__ == "__main__":
     unittest.main()

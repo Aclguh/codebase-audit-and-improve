@@ -153,7 +153,15 @@ def detect_stack(cwd):
         else:
             for candidate_dir in ["tests", "scripts", "src"]:
                 d_path = os.path.join(cwd, candidate_dir)
-                if os.path.isdir(d_path) and any(f.endswith(".py") for f in os.listdir(d_path)):
+                if not os.path.isdir(d_path):
+                    continue
+                try:
+                    entries = os.listdir(d_path)
+                except OSError:
+                    # Unreadable candidate directory (permissions, concurrent
+                    # removal) must not abort the whole stack detection.
+                    continue
+                if any(f.endswith(".py") for f in entries):
                     has_py_source = True
                     manifest_name = f"{candidate_dir}/"
                     break
@@ -403,10 +411,15 @@ def check_gitignore(cwd):
 
     if not os.path.exists(gitignore_path):
         return False, "Missing .gitignore file", gitignore_path
-    
-    with open(gitignore_path, "r", encoding="utf-8", errors="ignore") as f:
-        lines = f.readlines()
-    
+
+    try:
+        with open(gitignore_path, "r", encoding="utf-8", errors="ignore") as f:
+            lines = f.readlines()
+    except OSError as e:
+        # Unreadable .gitignore (directory, permissions, lock) must not crash
+        # the pre-flight check; report it as unprotected instead.
+        return False, f"Unable to read .gitignore: {e}", gitignore_path
+
     for raw_line in lines:
         line = raw_line.strip()
         if not line or line.startswith("#"):
@@ -433,12 +446,17 @@ def add_to_gitignore(cwd):
     except Exception:
         return False
     entry = "\n# Temporary audit and improvement roadmap\nIMPROVEMENTS.md\n"
-    if os.path.exists(gitignore_path):
-        with open(gitignore_path, "a", encoding="utf-8") as f:
-            f.write(entry)
-    else:
-        with open(gitignore_path, "w", encoding="utf-8") as f:
-            f.write(entry.lstrip())
+    try:
+        if os.path.exists(gitignore_path):
+            with open(gitignore_path, "a", encoding="utf-8") as f:
+                f.write(entry)
+        else:
+            with open(gitignore_path, "w", encoding="utf-8") as f:
+                f.write(entry.lstrip())
+    except OSError:
+        # Read-only checkouts, .gitignore directories and locked files must
+        # surface as a failed fix rather than an unhandled exception.
+        return False
     return True
 
 def run_baseline_command(cmd, cwd):
@@ -498,9 +516,16 @@ def main():
     # 4. .gitignore check
     is_ignored, gitignore_msg, gitignore_path = check_gitignore(cwd)
     if not is_ignored and fix_gitignore:
-        add_to_gitignore(cwd)
-        is_ignored = True
-        gitignore_msg = "Appended IMPROVEMENTS.md to .gitignore"
+        if add_to_gitignore(cwd):
+            # Re-read the file (and Git's verdict) so a write that did not
+            # actually take effect is never reported as protected.
+            is_ignored, recheck_msg, gitignore_path = check_gitignore(cwd)
+            if is_ignored:
+                gitignore_msg = "Appended IMPROVEMENTS.md to .gitignore"
+            else:
+                gitignore_msg = f"Appended IMPROVEMENTS.md but it is still not ignored: {recheck_msg}"
+        else:
+            gitignore_msg = "Failed to append IMPROVEMENTS.md to .gitignore"
         
     baseline_results = []
     if run_baseline and stacks:

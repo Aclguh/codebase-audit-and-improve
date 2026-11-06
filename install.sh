@@ -93,8 +93,11 @@ install_skill_files() {
             esac
             ;;
     esac
+    # Recreate the skill directory from scratch so stale files from a previous
+    # install (including hidden ones) never survive. The path guards above keep
+    # this removal inside the expected install roots.
+    rm -rf "${dest:?}"
     mkdir -p "${dest}"
-    rm -rf "${dest:?}"/*
     cp -R "${SCRIPT_DIR}/references" "${dest}/"
     cp -R "${SCRIPT_DIR}/scripts" "${dest}/"
     rm -rf "${dest}/scripts/__pycache__"

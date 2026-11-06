@@ -22,8 +22,26 @@ if ($Help) {
     Write-Host "  -Help, -h          Show this help message"
     exit 0
 }
-$UserHome = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::UserProfile)
+# Honor USERPROFILE when set (mirrors install.sh honoring HOME), which also
+# lets the automated tests run against an isolated profile directory.
+$UserHome = $env:USERPROFILE
+if ([string]::IsNullOrWhiteSpace($UserHome) -or -not [System.IO.Path]::IsPathRooted($UserHome)) {
+    $UserHome = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::UserProfile)
+}
 $CurrentDir = Get-Location
+
+# Refuse global installs into an empty or filesystem-root home directory.
+if (-not $Workspace) {
+    if ([string]::IsNullOrWhiteSpace($UserHome)) {
+        Write-Error "User profile is not set; use -Workspace or set USERPROFILE"
+        exit 2
+    }
+    $HomeRoot = [System.IO.Path]::GetPathRoot($UserHome)
+    if ($UserHome.TrimEnd('\', '/') -eq $HomeRoot.TrimEnd('\', '/')) {
+        Write-Error "Refusing to install into a filesystem root: $UserHome"
+        exit 2
+    }
+}
 
 function Install-SkillFiles($DestinationDir, $SkillName) {
     if ([string]::IsNullOrWhiteSpace($DestinationDir)) {
@@ -146,8 +164,10 @@ function Install-Continue() {
             $ExistingJson | ConvertTo-Json -Depth 10 | Set-Content $ConfigFile -Encoding UTF8
             Write-Host "    + Merged into: $ConfigFile" -ForegroundColor Green
         } catch {
-            Copy-Item -Force $ContinueTemplate $ConfigFile
-            Write-Host "    + Created: $ConfigFile" -ForegroundColor Green
+            # Never destroy an existing configuration we cannot parse (for
+            # example JSONC with comments); leave it untouched and let the
+            # user merge the template manually.
+            Write-Warning "Existing config.json could not be parsed and was left unchanged. Merge templates/continue/config.json manually: $ConfigFile"
         }
     } else {
         Copy-Item -Force $ContinueTemplate $ConfigFile

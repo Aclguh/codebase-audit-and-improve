@@ -640,5 +640,52 @@ class TestCheckHealth(unittest.TestCase):
         self.assertIn("NOT found in .gitignore", output)
 
 
+    def test_check_gitignore_reports_unreadable_file(self):
+        # A directory named .gitignore cannot be read; the check must report
+        # "unprotected" instead of raising through the pre-flight guard.
+        os.makedirs(os.path.join(self.test_dir, ".gitignore"))
+        is_ignored, msg, _ = check_health.check_gitignore(self.test_dir)
+        self.assertFalse(is_ignored)
+        self.assertIn("Unable to read .gitignore", msg)
+
+    def test_add_to_gitignore_handles_write_failure(self):
+        # Same unreadable target: appending must fail cleanly, not crash.
+        os.makedirs(os.path.join(self.test_dir, ".gitignore"))
+        self.assertFalse(check_health.add_to_gitignore(self.test_dir))
+
+    def test_main_fix_gitignore_never_reports_false_success(self):
+        import io
+        from contextlib import redirect_stdout
+
+        cases = [
+            # (add result, subsequent check result, expected message fragment)
+            (False, (False, "still missing", ".gitignore"), "Failed to append"),
+            (True, (False, "Not ignored by git check-ignore", ".gitignore"), "still not ignored"),
+            (True, (True, "Confirmed ignored by git check-ignore", ".gitignore"), "Appended IMPROVEMENTS.md"),
+        ]
+        for add_result, recheck, expected in cases:
+            with self.subTest(add_result=add_result, recheck=recheck):
+                with patch("os.getcwd", return_value=self.test_dir), \
+                     patch.object(check_health, "add_to_gitignore", return_value=add_result), \
+                     patch.object(check_health, "check_gitignore", side_effect=[
+                         (False, "Missing .gitignore file", os.path.join(self.test_dir, ".gitignore")),
+                         recheck,
+                     ]), \
+                     patch("sys.argv", ["check_health.py", "--json", "--fix-gitignore"]):
+                    buf = io.StringIO()
+                    with redirect_stdout(buf):
+                        check_health.main()
+                data = json.loads(buf.getvalue())
+                self.assertIn(expected, data["gitignore"]["message"])
+                self.assertEqual(data["gitignore"]["is_protected"], recheck[0])
+
+    def test_detect_stack_tolerates_unreadable_source_dirs(self):
+        os.makedirs(os.path.join(self.test_dir, "scripts"))
+        Path(os.path.join(self.test_dir, "scripts", "tool.py")).touch()
+        with patch("check_health.os.listdir", side_effect=PermissionError("denied")):
+            stacks = check_health.detect_stack(self.test_dir)
+        self.assertEqual(stacks, [])
+
+
 if __name__ == "__main__":
     unittest.main()
