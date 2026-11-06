@@ -118,6 +118,20 @@ class TestInstallSh(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(skill_dir, "SKILL.md")))
         self.assertTrue(os.path.isfile(os.path.join(skill_dir, "scripts", "check_health.py")))
 
+    def test_workspace_reinstall_removes_stale_files(self):
+        first = self.run_install("--workspace", "claude")
+        self.assertEqual(first.returncode, 0, first.stderr)
+
+        skill_dir = os.path.join(self.test_dir, ".claude", "skills", "improve")
+        for name in ("STALE.md", ".hidden-stale"):
+            Path(os.path.join(skill_dir, name)).write_text("stale", encoding="utf-8")
+
+        second = self.run_install("--workspace", "claude")
+        self.assertEqual(second.returncode, 0, second.stderr)
+        for name in ("STALE.md", ".hidden-stale"):
+            self.assertFalse(os.path.exists(os.path.join(skill_dir, name)), name)
+        self.assertTrue(os.path.isfile(os.path.join(skill_dir, "SKILL.md")))
+
 
 if __name__ == "__main__":
     unittest.main()
