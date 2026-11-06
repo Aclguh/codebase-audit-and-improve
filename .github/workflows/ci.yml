@@ -34,7 +34,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Static Syntax Verification
-        run: python -m py_compile scripts/__init__.py scripts/check_health.py scripts/track_progress.py tests/test_check_health.py tests/test_track_progress.py tests/test_install_sh.py
+        run: python -m compileall -q scripts tests
 
       - name: Verify Package Import & Modules
         run: python -c "import scripts; assert hasattr(scripts, 'check_health') and hasattr(scripts, 'track_progress')"
