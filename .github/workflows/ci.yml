@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+# Least privilege: this workflow only reads the repository and runs tests.
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Test & Lint (${{ matrix.os }}, Py ${{ matrix.python-version }})
