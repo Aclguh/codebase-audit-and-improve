@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 INSTALL_SH = REPO_ROOT / "install.sh"
@@ -163,6 +164,28 @@ class TestInstallSh(unittest.TestCase):
         for name in ("STALE.md", ".hidden-stale"):
             self.assertFalse(os.path.exists(os.path.join(skill_dir, name)), name)
         self.assertTrue(os.path.isfile(os.path.join(skill_dir, "SKILL.md")))
+
+
+class TestBashResolution(unittest.TestCase):
+    def test_windows_rejects_system32_wsl_bash(self):
+        with patch("os.name", "nt"), \
+             patch("pathlib.Path.is_file", return_value=False), \
+             patch("shutil.which", return_value=r"C:\Windows\System32\bash.exe"):
+            self.assertIsNone(resolve_compatible_bash())
+
+    def test_windows_accepts_git_bash_candidate(self):
+        def fake_is_file(path_obj):
+            return "Git" in str(path_obj)
+        with patch("os.name", "nt"), \
+             patch("pathlib.Path.is_file", autospec=True, side_effect=fake_is_file):
+            resolved = resolve_compatible_bash()
+            self.assertIsNotNone(resolved)
+            self.assertIn("Git", resolved)
+
+    def test_posix_uses_shutil_which(self):
+        with patch("os.name", "posix"), \
+             patch("shutil.which", return_value="/usr/local/bin/bash"):
+            self.assertEqual(resolve_compatible_bash(), "/usr/local/bin/bash")
 
 
 if __name__ == "__main__":

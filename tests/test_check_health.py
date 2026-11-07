@@ -686,6 +686,22 @@ class TestCheckHealth(unittest.TestCase):
             stacks = check_health.detect_stack(self.test_dir)
         self.assertEqual(stacks, [])
 
+    def test_git_status_and_ignore_pass_errors_replace(self):
+        calls = []
+
+        def fake_run(cmd, **kwargs):
+            calls.append((cmd, kwargs))
+            return subprocess.CompletedProcess(cmd, 0, stdout="test\n", stderr="")
+
+        with patch("shutil.which", return_value="git"), \
+             patch("subprocess.run", side_effect=fake_run):
+            check_health.check_git_status(self.test_dir)
+            check_health.git_reports_ignored(self.test_dir)
+
+        self.assertTrue(len(calls) > 0)
+        for cmd, kwargs in calls:
+            self.assertEqual(kwargs.get("errors"), "replace")
+
 
 if __name__ == "__main__":
     unittest.main()
