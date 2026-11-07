@@ -11,7 +11,13 @@ param (
 )
 
 $ErrorActionPreference = "Stop"
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ScriptDir = if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) {
+    $PSScriptRoot
+} elseif ($MyInvocation.MyCommand.Path) {
+    Split-Path -Parent $MyInvocation.MyCommand.Path
+} else {
+    (Get-Location).Path
+}
 
 if ($Help) {
     Write-Host "Usage: .\install.ps1 [-Target <Antigravity|Claude|Cursor|Continue|DeepSeek|Codex|All>] [-Workspace] [-Help]"
@@ -149,6 +155,11 @@ function Install-Continue() {
     New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null
     $ConfigFile = Join-Path $ConfigDir "config.json"
     $ContinueTemplate = Join-Path (Join-Path (Join-Path $ScriptDir "templates") "continue") "config.json"
+
+    if (-not (Test-Path $ContinueTemplate)) {
+        Write-Warning "Continue template not found at: $ContinueTemplate"
+        return
+    }
 
     $SourceCommands = (Get-Content $ContinueTemplate -Raw | ConvertFrom-Json).customCommands
     
