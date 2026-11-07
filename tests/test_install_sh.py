@@ -9,10 +9,47 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 INSTALL_SH = REPO_ROOT / "install.sh"
-BASH = shutil.which("bash")
+def resolve_compatible_bash():
+    """Locate a bash interpreter that can execute posix scripts with local paths.
+
+    On Windows, `shutil.which('bash')` frequently points to WSL bash in
+    System32 (e.g. C:\Windows\System32\bash.exe), which fails to resolve
+    DOS drive letters (such as D:/...). We therefore search for Git Bash or
+    MSYS bash first. If only WSL bash is present on Windows, we return None
+    so the integration test safely skips. On non-Windows platforms, we use
+    the standard system bash.
+    """
+    if os.name == "nt":
+        prog_files = os.environ.get("ProgramFiles", "C:\Program Files")
+        prog_files_x86 = os.environ.get("ProgramFiles(x86)", "C:\Program Files (x86)")
+        local_app_data = os.environ.get("LocalAppData", "")
+        candidates = [
+            os.path.join(prog_files, "Git", "bin", "bash.exe"),
+            os.path.join(prog_files, "Git", "usr", "bin", "bash.exe"),
+            os.path.join(prog_files_x86, "Git", "bin", "bash.exe"),
+            os.path.join(prog_files_x86, "Git", "usr", "bin", "bash.exe"),
+        ]
+        if local_app_data:
+            candidates.append(os.path.join(local_app_data, "Programs", "Git", "bin", "bash.exe"))
+
+        for candidate in candidates:
+            if os.path.isfile(candidate):
+                return candidate
+
+        which_bash = shutil.which("bash")
+        if which_bash:
+            wb_lower = which_bash.lower()
+            if "system32" not in wb_lower and "syswow64" not in wb_lower:
+                return which_bash
+        return None
+
+    return shutil.which("bash")
+
+BASH = resolve_compatible_bash()
 
 
 @unittest.skipUnless(BASH, "bash is not available on this platform")
@@ -131,6 +168,26 @@ class TestInstallSh(unittest.TestCase):
         for name in ("STALE.md", ".hidden-stale"):
             self.assertFalse(os.path.exists(os.path.join(skill_dir, name)), name)
         self.assertTrue(os.path.isfile(os.path.join(skill_dir, "SKILL.md")))
+
+
+class TestBashResolution(unittest.TestCase):
+    def test_windows_rejects_system32_wsl_bash(self):
+        with patch("os.name", "nt"), \
+             patch("os.path.isfile", return_value=False), \
+             patch("shutil.which", return_value=r"C:\Windows\System32\bash.exe"):
+            self.assertIsNone(resolve_compatible_bash())
+
+    def test_windows_accepts_git_bash_candidate(self):
+        with patch("os.name", "nt"), \
+             patch("os.path.isfile", side_effect=lambda p: "Git" in str(p)):
+            resolved = resolve_compatible_bash()
+            self.assertIsNotNone(resolved)
+            self.assertIn("Git", resolved)
+
+    def test_posix_uses_shutil_which(self):
+        with patch("os.name", "posix"), \
+             patch("shutil.which", return_value="/usr/local/bin/bash"):
+            self.assertEqual(resolve_compatible_bash(), "/usr/local/bin/bash")
 
 
 if __name__ == "__main__":

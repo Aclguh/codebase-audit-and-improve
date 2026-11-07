@@ -104,7 +104,7 @@ install_skill_files() {
     if [ -f "${SCRIPT_DIR}/LICENSE" ]; then
         cp "${SCRIPT_DIR}/LICENSE" "${dest}/"
     fi
-    if [ "${skill_name}" == "improve-all" ]; then
+    if [ "${skill_name}" = "improve-all" ]; then
         cp -f "${SCRIPT_DIR}/skills/improve-all/SKILL.md" "${dest}/SKILL.md"
     else
         cp -f "${SCRIPT_DIR}/skills/improve/SKILL.md" "${dest}/SKILL.md"
@@ -248,12 +248,12 @@ echo "Codebase Audit & Improve: Multi-Agent Installer"
 echo "Target: ${TARGET} | Workspace: ${WORKSPACE}"
 echo "================================================="
 
-if [ "$TARGET_LOWER" == "all" ] || [ "$TARGET_LOWER" == "antigravity" ]; then install_antigravity; fi
-if [ "$TARGET_LOWER" == "all" ] || [ "$TARGET_LOWER" == "claude" ]; then install_claude; fi
-if [ "$TARGET_LOWER" == "all" ] || [ "$TARGET_LOWER" == "cursor" ]; then install_cursor; fi
-if [ "$TARGET_LOWER" == "all" ] || [ "$TARGET_LOWER" == "continue" ]; then install_continue; fi
-if [ "$TARGET_LOWER" == "all" ] || [ "$TARGET_LOWER" == "deepseek" ]; then install_deepseek; fi
-if [ "$TARGET_LOWER" == "all" ] || [ "$TARGET_LOWER" == "codex" ]; then install_codex; fi
+if [ "$TARGET_LOWER" = "all" ] || [ "$TARGET_LOWER" = "antigravity" ]; then install_antigravity; fi
+if [ "$TARGET_LOWER" = "all" ] || [ "$TARGET_LOWER" = "claude" ]; then install_claude; fi
+if [ "$TARGET_LOWER" = "all" ] || [ "$TARGET_LOWER" = "cursor" ]; then install_cursor; fi
+if [ "$TARGET_LOWER" = "all" ] || [ "$TARGET_LOWER" = "continue" ]; then install_continue; fi
+if [ "$TARGET_LOWER" = "all" ] || [ "$TARGET_LOWER" = "deepseek" ]; then install_deepseek; fi
+if [ "$TARGET_LOWER" = "all" ] || [ "$TARGET_LOWER" = "codex" ]; then install_codex; fi
 
 echo ""
 echo -e "\033[32mAll selected slash commands and skills have been cleanly installed without duplicates!\033[0m"

@@ -619,6 +619,38 @@ class TestTrackProgress(unittest.TestCase):
         self.assertEqual(cm.exception.code, 1)
         self.assertEqual(out_buf.getvalue(), "")
 
+    def test_non_task_table_resets_in_table_and_is_ignored(self):
+        content = """# Document With Non-Task Table
+| 评估维度 | 评级 / 得分 | 核心现状 |
+| :--- | :---: | :--- |
+| 架构设计 | 5.0 | 良好 |
+| 性能指标 | 4.8 | 优秀 |
+
+| 优先级 | 任务标识 | 任务名称 | 状态 |
+| :---: | :---: | :--- | :---: |
+| P0 | OPT-01 | Real task | [ ] |
+"""
+        filepath = os.path.join(self.test_dir, "NON_TASK_TABLE.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 1)
+        self.assertEqual(tasks[0]["id"], "OPT-01")
+        self.assertEqual(tasks[0]["name"], "Real task")
+
+    def test_clean_cell_markdown_stripping_and_preservation(self):
+        self.assertEqual(track_progress.clean_cell(""), "")
+        self.assertEqual(track_progress.clean_cell(None), "")
+        self.assertEqual(track_progress.clean_cell("**bold**"), "bold")
+        self.assertEqual(track_progress.clean_cell("`code`"), "code")
+        self.assertEqual(track_progress.clean_cell("~~deleted~~"), "deleted")
+        self.assertEqual(track_progress.clean_cell("__italic__"), "italic")
+        self.assertEqual(track_progress.clean_cell("`parse_package_json`"), "parse_package_json")
+        self.assertEqual(track_progress.clean_cell("**OPT_01**"), "OPT_01")
+        self.assertEqual(track_progress.clean_cell("`OPT-02`"), "OPT-02")
+
 
 if __name__ == "__main__":
     unittest.main()
