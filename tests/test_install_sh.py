@@ -12,7 +12,39 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 INSTALL_SH = REPO_ROOT / "install.sh"
-BASH = shutil.which("bash")
+def resolve_compatible_bash():
+    """Locate a bash interpreter that can execute posix scripts with local paths.
+
+    On Windows, `shutil.which('bash')` frequently points to WSL bash in
+    System32 (e.g. C:\\Windows\\System32\\bash.exe), which fails to resolve
+    DOS drive letters (such as D:/...). We therefore search for Git Bash or
+    MSYS bash first. If only WSL bash is present on Windows, we return None
+    so the integration test safely skips. On non-Windows platforms, we use
+    the standard system bash.
+    """
+    if os.name == "nt":
+        candidates = [
+            Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "Git" / "bin" / "bash.exe",
+            Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "Git" / "usr" / "bin" / "bash.exe",
+            Path(os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")) / "Git" / "bin" / "bash.exe",
+            Path(os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")) / "Git" / "usr" / "bin" / "bash.exe",
+            Path(os.environ.get("LocalAppData", "")) / "Programs" / "Git" / "bin" / "bash.exe",
+        ]
+        for candidate in candidates:
+            if candidate.is_file():
+                return str(candidate)
+
+        which_bash = shutil.which("bash")
+        if which_bash:
+            wb_lower = which_bash.lower()
+            if "system32" not in wb_lower and "syswow64" not in wb_lower:
+                return which_bash
+        return None
+
+    return shutil.which("bash")
+
+
+BASH = resolve_compatible_bash()
 
 
 @unittest.skipUnless(BASH, "bash is not available on this platform")
