@@ -322,16 +322,16 @@ def check_git_status(cwd):
         return result
         
     try:
-        p_check = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], cwd=cwd, capture_output=True, text=True, timeout=15)
+        p_check = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], cwd=cwd, capture_output=True, text=True, errors="replace", timeout=15)
         if p_check.returncode != 0:
             return result
         result["is_git"] = True
 
         # Check branch
-        p_branch = subprocess.run(["git", "branch", "--show-current"], cwd=cwd, capture_output=True, text=True, timeout=15)
+        p_branch = subprocess.run(["git", "branch", "--show-current"], cwd=cwd, capture_output=True, text=True, errors="replace", timeout=15)
         branch = p_branch.stdout.strip() if p_branch.returncode == 0 else ""
         if not branch:
-            p_head = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=cwd, capture_output=True, text=True, timeout=15)
+            p_head = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=cwd, capture_output=True, text=True, errors="replace", timeout=15)
             if p_head.returncode == 0 and p_head.stdout.strip():
                 branch = f"detached@{p_head.stdout.strip()}"
             else:
@@ -345,7 +345,7 @@ def check_git_status(cwd):
 
         # Check dirty working tree. If git status cannot be trusted, fail closed
         # instead of reporting a clean tree to the pre-flight safety guard.
-        p_status = subprocess.run(["git", "status", "--porcelain"], cwd=cwd, capture_output=True, text=True, timeout=15)
+        p_status = subprocess.run(["git", "status", "--porcelain"], cwd=cwd, capture_output=True, text=True, errors="replace", timeout=15)
         if p_status.returncode != 0:
             detail = (p_status.stderr or p_status.stdout).strip()
             result["is_clean"] = False
@@ -356,15 +356,15 @@ def check_git_status(cwd):
             result["dirty_files_count"] = len(dirty_lines)
         
         # Check remote origin
-        p_remote = subprocess.run(["git", "remote", "get-url", "origin"], cwd=cwd, capture_output=True, text=True, timeout=15)
+        p_remote = subprocess.run(["git", "remote", "get-url", "origin"], cwd=cwd, capture_output=True, text=True, errors="replace", timeout=15)
         if p_remote.returncode == 0 and p_remote.stdout.strip():
             result["remote_origin"] = p_remote.stdout.strip()
 
         else:
-            p_remotes = subprocess.run(["git", "remote"], cwd=cwd, capture_output=True, text=True, timeout=15)
+            p_remotes = subprocess.run(["git", "remote"], cwd=cwd, capture_output=True, text=True, errors="replace", timeout=15)
             if p_remotes.returncode == 0 and p_remotes.stdout.strip():
                 first_remote = p_remotes.stdout.strip().splitlines()[0].strip()
-                p_first = subprocess.run(["git", "remote", "get-url", first_remote], cwd=cwd, capture_output=True, text=True, timeout=15)
+                p_first = subprocess.run(["git", "remote", "get-url", first_remote], cwd=cwd, capture_output=True, text=True, errors="replace", timeout=15)
                 if p_first.returncode == 0 and p_first.stdout.strip():
                     result["remote_origin"] = p_first.stdout.strip()
 
@@ -389,6 +389,8 @@ def git_reports_ignored(cwd):
             ["git", "check-ignore", "-q", "--", "IMPROVEMENTS.md"],
             cwd=cwd,
             capture_output=True,
+            text=True,
+            errors="replace",
             timeout=15,
             check=False,
         )
