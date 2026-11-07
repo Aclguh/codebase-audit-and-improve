@@ -25,6 +25,12 @@ if hasattr(sys.stderr, 'reconfigure'):
 # Priority tokens must stand alone: "P2P" and "OPT-01" are not priorities.
 PRIORITY_TOKEN_RE = re.compile(r'(?i)(?<![A-Za-z0-9])(P\d+)(?![A-Za-z0-9])')
 
+# Precompiled markdown stripping regexes for high-performance cell cleaning
+WRAPPING_RE = re.compile(r'^(\*{1,3}|_{1,3}|~{1,2}|`+)(.+?)\1$', re.DOTALL)
+INLINE_CODE_RE = re.compile(r'`([^`]+)`')
+INLINE_BOLD_RE = re.compile(r'\*\*(.+?)\*\*')
+INLINE_STRIKE_RE = re.compile(r'~~(.+?)~~')
+
 def clean_cell(text):
     """Strip markdown emphasis while preserving identifier characters.
 
@@ -35,16 +41,15 @@ def clean_cell(text):
         return ""
     cleaned = text.strip()
     # Peel wrapping emphasis/code markers repeatedly: **x**, *x*, __x__, _x_, ~~x~~, `x`
-    wrapping = re.compile(r'^(\*{1,3}|_{1,3}|~{1,2}|`+)(.+?)\1$', re.DOTALL)
     while True:
-        match = wrapping.match(cleaned)
+        match = WRAPPING_RE.match(cleaned)
         if not match:
             break
         cleaned = match.group(2).strip()
     # Remove inline code spans and paired bold/strikethrough markers anywhere.
-    cleaned = re.sub(r'`([^`]+)`', r'\1', cleaned)
-    cleaned = re.sub(r'\*\*(.+?)\*\*', r'\1', cleaned)
-    cleaned = re.sub(r'~~(.+?)~~', r'\1', cleaned)
+    cleaned = INLINE_CODE_RE.sub(r'\1', cleaned)
+    cleaned = INLINE_BOLD_RE.sub(r'\1', cleaned)
+    cleaned = INLINE_STRIKE_RE.sub(r'\1', cleaned)
     return cleaned.strip()
 
 def is_status_done(val):
@@ -186,6 +191,10 @@ def parse_improvements_file(filepath):
                 if is_task_table:
                     col_map = detected_map
                     in_table = True
+                    continue
+                else:
+                    col_map = {}
+                    in_table = False
                     continue
             
             # Skip separator line (| :--- | :---: |)
