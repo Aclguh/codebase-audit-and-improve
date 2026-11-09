@@ -243,6 +243,23 @@ class TestCheckHealth(unittest.TestCase):
         self.assertTrue(is_ignored)
         self.assertIn("Found matching ignore pattern", msg)
 
+    def test_check_gitignore_negation_overrides_earlier_pattern(self):
+        gitignore = os.path.join(self.test_dir, ".gitignore")
+        cases = [
+            # Last matching rule wins, exactly like Git.
+            ("*.md\n!IMPROVEMENTS.md\n", False),
+            ("!IMPROVEMENTS.md\n*.md\n", True),
+            # A negation for a different path must not un-ignore the root file.
+            ("*.md\n!docs/IMPROVEMENTS.md\n", True),
+        ]
+        for content, expected in cases:
+            with self.subTest(content=content):
+                with open(gitignore, "w", encoding="utf-8") as f:
+                    f.write(content)
+                with patch.object(check_health, "git_reports_ignored", return_value=None):
+                    is_ignored, msg, _ = check_health.check_gitignore(self.test_dir)
+                self.assertEqual(is_ignored, expected, msg)
+
     def test_check_gitignore_uses_case_sensitive_git_verdict(self):
         if not shutil.which("git"):
             self.skipTest("git is not available")

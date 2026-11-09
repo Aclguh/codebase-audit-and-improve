@@ -435,19 +435,29 @@ def check_gitignore(cwd):
         # the pre-flight check; report it as unprotected instead.
         return False, f"Unable to read .gitignore: {e}", gitignore_path
 
+    # Later rules override earlier ones, so a negated rule (for example
+    # ``!IMPROVEMENTS.md`` after ``*.md``) must be able to un-ignore the file.
+    ignored = False
+    message = "Found matching ignore pattern"
     for raw_line in lines:
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue
-        # If line negates, continue
-        if line.startswith("!"):
-            continue
+        negate = line.startswith("!")
+        if negate:
+            line = line[1:].strip()
+            if not line:
+                continue
         line_clean = line.lstrip("/")
-        if line_clean.lower() in ("improvements.md", "*.md"):
-            return True, "Found explicit ignore rule", gitignore_path
         if fnmatch.fnmatch("improvements.md", line_clean.lower()):
-            return True, "Found matching ignore pattern", gitignore_path
-            
+            ignored = not negate
+            if line_clean.lower() in ("improvements.md", "*.md"):
+                message = "Found explicit ignore rule"
+            else:
+                message = "Found matching ignore pattern"
+
+    if ignored:
+        return True, message, gitignore_path
     return False, "IMPROVEMENTS.md not ignored", gitignore_path
 
 def add_to_gitignore(cwd):
