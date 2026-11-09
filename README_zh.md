@@ -150,6 +150,8 @@ codebase-audit-and-improve/
 ├── LICENSE                      # MIT 开源协议
 ├── install.ps1                  # Windows 多 Agent 安装脚本
 ├── install.sh                   # Linux/macOS 多 Agent 安装脚本
+├── .github/
+│   └── workflows/ci.yml         # 跨平台 CI（静态分析、测试、覆盖率、安装器验证）
 ├── references/                  # 参考规范与指导手册（按需加载）
 │   ├── audit-dimensions.md      # 六大维度深度审计清单与子代理指导
 │   ├── improvements-template.md # 通用 IMPROVEMENTS.md 标准模板
@@ -162,12 +164,17 @@ codebase-audit-and-improve/
 │   ├── improve/                 # /improve Skill
 │   └── improve-all/             # /improve-all Skill
 ├── templates/                   # 非标 Agent 的集成模板
+│   ├── claude/                  # Claude Code 提示词模板
 │   ├── continue/                # Continue.dev 自定义命令配置
 │   └── cursor/                  # Cursor IDE 命令模板
 ├── tests/                       # 自动化单元测试套件
 │   ├── test_check_health.py     # 探针工具测试
 │   ├── test_track_progress.py   # 进度解析工具测试
-│   └── test_install_sh.py       # install.sh 参数与安装集成测试
+│   ├── test_install_sh.py       # install.sh 参数与安装集成测试
+│   ├── test_install_ps1.py      # install.ps1 参数与安装集成测试
+│   └── test_repo_docs.py        # 仓库文档一致性测试
+├── docs/                        # 截图与归档审计报告
+│   └── audits/                  # 已归档的 IMPROVEMENTS.md 路线图
 └── examples/
     └── sample-improvements.md   # 生产级样本 IMPROVEMENTS.md
 ```
