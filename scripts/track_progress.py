@@ -130,6 +130,38 @@ def parse_header_columns(header_cells):
             col_map['name'] = idx
     return col_map
 
+def split_table_row(line):
+    """Split a Markdown table row on unescaped pipes.
+
+    Escaped pipes (``\\|``) belong to the cell content and are unescaped, so a
+    task name containing a literal pipe cannot shift the status column.
+    """
+    inner = line.strip()
+    if inner.startswith("|"):
+        inner = inner[1:]
+    if inner.endswith("|"):
+        inner = inner[:-1]
+    cells = []
+    buf = []
+    escaped = False
+    for ch in inner:
+        if escaped:
+            if ch != "|":
+                buf.append("\\")
+            buf.append(ch)
+            escaped = False
+        elif ch == "\\":
+            escaped = True
+        elif ch == "|":
+            cells.append("".join(buf).strip())
+            buf = []
+        else:
+            buf.append(ch)
+    if escaped:
+        buf.append("\\")
+    cells.append("".join(buf).strip())
+    return cells
+
 def parse_improvements_file(filepath):
     if not os.path.exists(filepath):
         return None, f"File not found: {filepath}"
@@ -167,14 +199,14 @@ def parse_improvements_file(filepath):
 
         # 1. Parse Markdown Tables
         if line_clean.startswith("|") and line_clean.endswith("|"):
-            raw_cells = [c.strip() for c in line_clean.split("|")[1:-1]]
-            
+            raw_cells = split_table_row(line_clean)
+
             # Check if this row is followed by a separator line (| :--- | :---: |)
             is_followed_by_separator = False
             if idx + 1 < len(lines):
                 next_clean = lines[idx + 1].strip()
                 if next_clean.startswith("|") and next_clean.endswith("|"):
-                    next_cells = [c.strip() for c in next_clean.split("|")[1:-1]]
+                    next_cells = split_table_row(next_clean)
                     if next_cells and all(re.match(r'^:?-+:?$', c) for c in next_cells):
                         is_followed_by_separator = True
 

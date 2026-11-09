@@ -61,6 +61,20 @@ class TestCheckHealth(unittest.TestCase):
         self.assertEqual(lint_cmd, "npm run check")
         self.assertEqual(cov_cmd, "npm run coverage")
 
+        # Bun must run the declared package.json script, not its native runner.
+        with open(pkg_json, "w", encoding="utf-8") as f:
+            f.write('{"scripts": {"test": "vitest run"}}')
+        lint_cmd, test_cmd, cov_cmd = check_health.parse_package_json(self.test_dir, "bun")
+        self.assertEqual(test_cmd, "bun run test")
+        self.assertEqual(cov_cmd, "bun run test --coverage")
+
+        # Without a test script, Bun's native runner is the best fallback.
+        with open(pkg_json, "w", encoding="utf-8") as f:
+            f.write('{"scripts": {}}')
+        lint_cmd, test_cmd, cov_cmd = check_health.parse_package_json(self.test_dir, "bun")
+        self.assertEqual(test_cmd, "bun test")
+        self.assertEqual(cov_cmd, "bun test --coverage")
+
     def test_detect_monorepo(self):
         self.assertEqual(check_health.detect_monorepo(self.test_dir), [])
 
@@ -179,6 +193,25 @@ class TestCheckHealth(unittest.TestCase):
         self.assertTrue(any(".NET" in n for n in stack_names))
         self.assertTrue(any("Gradle" in n for n in stack_names))
 
+    def test_maven_wrapper_command_per_platform(self):
+        Path(os.path.join(self.test_dir, "pom.xml")).touch()
+        Path(os.path.join(self.test_dir, "mvnw")).touch()
+        Path(os.path.join(self.test_dir, "mvnw.cmd")).touch()
+
+        def maven_stack():
+            return [s for s in check_health.detect_stack(self.test_dir) if "Maven" in s["name"]][0]
+
+        with patch.object(sys, "platform", "win32"):
+            self.assertEqual(maven_stack()["lint_cmd"], "mvnw.cmd checkstyle:check")
+
+        # Without the Windows wrapper entry point, cmd.exe cannot run ./mvnw.
+        os.remove(os.path.join(self.test_dir, "mvnw.cmd"))
+        with patch.object(sys, "platform", "win32"):
+            self.assertEqual(maven_stack()["lint_cmd"], "mvn checkstyle:check")
+
+        with patch.object(sys, "platform", "linux"):
+            self.assertEqual(maven_stack()["lint_cmd"], "./mvnw checkstyle:check")
+
     def test_check_gitignore(self):
         # Missing
         is_ignored, msg, _ = check_health.check_gitignore(self.test_dir)
@@ -209,6 +242,23 @@ class TestCheckHealth(unittest.TestCase):
         is_ignored, msg, _ = check_health.check_gitignore(self.test_dir)
         self.assertTrue(is_ignored)
         self.assertIn("Found matching ignore pattern", msg)
+
+    def test_check_gitignore_negation_overrides_earlier_pattern(self):
+        gitignore = os.path.join(self.test_dir, ".gitignore")
+        cases = [
+            # Last matching rule wins, exactly like Git.
+            ("*.md\n!IMPROVEMENTS.md\n", False),
+            ("!IMPROVEMENTS.md\n*.md\n", True),
+            # A negation for a different path must not un-ignore the root file.
+            ("*.md\n!docs/IMPROVEMENTS.md\n", True),
+        ]
+        for content, expected in cases:
+            with self.subTest(content=content):
+                with open(gitignore, "w", encoding="utf-8") as f:
+                    f.write(content)
+                with patch.object(check_health, "git_reports_ignored", return_value=None):
+                    is_ignored, msg, _ = check_health.check_gitignore(self.test_dir)
+                self.assertEqual(is_ignored, expected, msg)
 
     def test_check_gitignore_uses_case_sensitive_git_verdict(self):
         if not shutil.which("git"):
@@ -582,6 +632,44 @@ class TestCheckHealth(unittest.TestCase):
         self.assertTrue(info["is_git"])
         self.assertFalse(info["is_clean"])
         self.assertIn("index file corrupt", info["status_error"])
+
+    def test_check_git_status_fails_closed_on_status_timeout(self):
+        def fake_run(cmd, *args, **kwargs):
+            cmd_str = " ".join(cmd)
+            if "rev-parse --is-inside-work-tree" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="true\n")
+            if "branch --show-current" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="feature/demo\n")
+            if "status --porcelain" in cmd_str:
+                raise subprocess.TimeoutExpired(cmd, 15)
+            return subprocess.CompletedProcess(cmd, 0, stdout="")
+
+        with patch("shutil.which", return_value="/usr/bin/git"), patch("subprocess.run", side_effect=fake_run):
+            info = check_health.check_git_status(self.test_dir)
+
+        self.assertTrue(info["is_git"])
+        self.assertFalse(info["is_clean"], "unknown status must not be reported as clean")
+        self.assertIn("Unable to verify working tree status", info["status_error"])
+
+    def test_check_git_status_remote_failure_keeps_verified_status(self):
+        def fake_run(cmd, *args, **kwargs):
+            cmd_str = " ".join(cmd)
+            if "rev-parse --is-inside-work-tree" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="true\n")
+            if "branch --show-current" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="feature/demo\n")
+            if "status --porcelain" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="")
+            raise RuntimeError("remote lookup failed")
+
+        with patch("shutil.which", return_value="/usr/bin/git"), patch("subprocess.run", side_effect=fake_run):
+            info = check_health.check_git_status(self.test_dir)
+
+        # The working tree verdict was already verified, so a later failure
+        # must not turn a clean tree into an unknown one.
+        self.assertTrue(info["is_clean"])
+        self.assertNotIn("status_error", info)
+        self.assertIn("remote lookup failed", info["git_error"])
 
     def test_main_console_reports_unknown_git_status(self):
         import io

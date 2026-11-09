@@ -33,13 +33,13 @@ class TestInstallPs1(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
-    def run_install(self, *args, user_profile=None):
+    def run_install(self, *args, user_profile=None, cwd=None):
         env = os.environ.copy()
         env["USERPROFILE"] = user_profile if user_profile is not None else self.home_dir
         env["PYTHONIOENCODING"] = "utf-8"
         return subprocess.run(
             [POWERSHELL, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(INSTALL_PS1), *args],
-            cwd=self.work_dir,
+            cwd=cwd or self.work_dir,
             env=env,
             capture_output=True,
             encoding="utf-8",
@@ -96,6 +96,14 @@ class TestInstallPs1(unittest.TestCase):
     def test_global_install_rejects_filesystem_root(self):
         drive_root = os.environ.get("SystemDrive", "C:") + os.sep
         result = self.run_install("-Target", "Claude", user_profile=drive_root)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Refusing to install into a filesystem root", self.combined_output(result))
+
+    def test_workspace_install_rejects_filesystem_root(self):
+        drive_root = os.environ.get("SystemDrive", "C:") + os.sep
+        # Continue is used because a broken guard would only create a config
+        # file at the drive root instead of recreating skill directories.
+        result = self.run_install("-Target", "Continue", "-Workspace", cwd=drive_root)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Refusing to install into a filesystem root", self.combined_output(result))
 

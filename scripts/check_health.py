@@ -91,17 +91,23 @@ def parse_package_json(cwd, pkg_mgr):
     else:
         lint_cmd = f"{pkg_mgr} exec eslint ." if shutil.which(pkg_mgr) else "npx eslint ."
 
-    # Test command
+    # Test command. `bun test` runs Bun's built-in test runner, so a declared
+    # package.json "test" script must be invoked explicitly with `bun run`.
     if "test" in scripts:
-        test_cmd = f"{pkg_mgr} test" if pkg_mgr in ("pnpm", "yarn", "bun") else "npm test"
+        test_cmd = "bun run test" if pkg_mgr == "bun" else (
+            f"{pkg_mgr} test" if pkg_mgr in ("pnpm", "yarn") else "npm test"
+        )
     else:
-        test_cmd = f"{pkg_mgr} test"
+        test_cmd = "bun test" if pkg_mgr == "bun" else f"{pkg_mgr} test"
 
     # Coverage command
     if "test:coverage" in scripts:
         coverage_cmd = f"{run_cmd} test:coverage"
     elif "coverage" in scripts:
         coverage_cmd = f"{run_cmd} coverage"
+    elif pkg_mgr == "bun":
+        # `bun run` forwards flags directly; npm-style `--` is unnecessary.
+        coverage_cmd = f"{test_cmd} --coverage"
     else:
         coverage_cmd = f"{test_cmd} -- --coverage"
 
@@ -231,7 +237,14 @@ def detect_stack(cwd):
 
     # 6. Java / Kotlin (Maven / Gradle)
     if os.path.exists(os.path.join(cwd, "pom.xml")):
-        mvn_cmd = "./mvnw" if os.path.exists(os.path.join(cwd, "mvnw")) else "mvn"
+        has_mvnw = os.path.exists(os.path.join(cwd, "mvnw"))
+        has_mvnw_cmd = os.path.exists(os.path.join(cwd, "mvnw.cmd"))
+        if sys.platform.startswith("win"):
+            # cmd.exe cannot run the POSIX ./mvnw shell script; prefer the
+            # wrapper's .cmd entry point and fall back to the CLI.
+            mvn_cmd = "mvnw.cmd" if has_mvnw_cmd else "mvn"
+        else:
+            mvn_cmd = "./mvnw" if has_mvnw else "mvn"
         stacks.append({
             "name": "Java (Maven)",
             "manifest": "pom.xml",
@@ -320,7 +333,8 @@ def check_git_status(cwd):
     if not shutil.which("git"):
         result["git_error"] = "git executable not found in PATH"
         return result
-        
+
+    status_verified = False
     try:
         p_check = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], cwd=cwd, capture_output=True, text=True, errors="replace", timeout=15)
         if p_check.returncode != 0:
@@ -354,6 +368,7 @@ def check_git_status(cwd):
             dirty_lines = [line for line in p_status.stdout.splitlines() if line.strip()]
             result["is_clean"] = len(dirty_lines) == 0
             result["dirty_files_count"] = len(dirty_lines)
+            status_verified = True
         
         # Check remote origin
         p_remote = subprocess.run(["git", "remote", "get-url", "origin"], cwd=cwd, capture_output=True, text=True, errors="replace", timeout=15)
@@ -371,7 +386,12 @@ def check_git_status(cwd):
 
     except Exception as e:
         result["git_error"] = str(e)
-        
+        # A timeout or unexpected failure before the status check completed
+        # must never be reported as a clean working tree.
+        if result.get("is_git") and not status_verified:
+            result["is_clean"] = False
+            result["status_error"] = f"Unable to verify working tree status: {e}"
+
     return result
 
 def git_reports_ignored(cwd):
@@ -422,19 +442,29 @@ def check_gitignore(cwd):
         # the pre-flight check; report it as unprotected instead.
         return False, f"Unable to read .gitignore: {e}", gitignore_path
 
+    # Later rules override earlier ones, so a negated rule (for example
+    # ``!IMPROVEMENTS.md`` after ``*.md``) must be able to un-ignore the file.
+    ignored = False
+    message = "Found matching ignore pattern"
     for raw_line in lines:
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue
-        # If line negates, continue
-        if line.startswith("!"):
-            continue
+        negate = line.startswith("!")
+        if negate:
+            line = line[1:].strip()
+            if not line:
+                continue
         line_clean = line.lstrip("/")
-        if line_clean.lower() in ("improvements.md", "*.md"):
-            return True, "Found explicit ignore rule", gitignore_path
         if fnmatch.fnmatch("improvements.md", line_clean.lower()):
-            return True, "Found matching ignore pattern", gitignore_path
-            
+            ignored = not negate
+            if line_clean.lower() in ("improvements.md", "*.md"):
+                message = "Found explicit ignore rule"
+            else:
+                message = "Found matching ignore pattern"
+
+    if ignored:
+        return True, message, gitignore_path
     return False, "IMPROVEMENTS.md not ignored", gitignore_path
 
 def add_to_gitignore(cwd):

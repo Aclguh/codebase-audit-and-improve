@@ -640,6 +640,26 @@ class TestTrackProgress(unittest.TestCase):
         self.assertEqual(tasks[0]["id"], "OPT-01")
         self.assertEqual(tasks[0]["name"], "Real task")
 
+    def test_table_cells_with_escaped_pipes_keep_column_alignment(self):
+        content = (
+            "| 优先级 | 任务标识 | 任务名称 | 状态 |\n"
+            "| :---: | :---: | :--- | :---: |\n"
+            "| **P1** | **OPT-01** | 支持 `a \\| b` 解析 | [x] |\n"
+            "| **P2** | **OPT-02** | 未完成任务 | [ ] |\n"
+        )
+        path = os.path.join(self.test_dir, "IMPROVEMENTS.md")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(path)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 2)
+        self.assertEqual(tasks[0]["id"], "OPT-01")
+        self.assertEqual(tasks[0]["name"], "支持 a | b 解析")
+        self.assertTrue(tasks[0]["done"])
+        self.assertEqual(tasks[1]["id"], "OPT-02")
+        self.assertFalse(tasks[1]["done"])
+
     def test_clean_cell_markdown_stripping_and_preservation(self):
         self.assertEqual(track_progress.clean_cell(""), "")
         self.assertEqual(track_progress.clean_cell(None), "")

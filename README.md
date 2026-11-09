@@ -150,6 +150,8 @@ codebase-audit-and-improve/
 ├── LICENSE                      # MIT License
 ├── install.ps1                  # Windows multi-agent installation script
 ├── install.sh                   # Linux/macOS multi-agent installation script
+├── .github/
+│   └── workflows/ci.yml         # Cross-platform CI (lint, tests, coverage, installers)
 ├── references/                  # Reference documents (loaded on demand)
 │   ├── audit-dimensions.md      # Detailed diagnostic checklists for 6 dimensions
 │   ├── improvements-template.md # Universal IMPROVEMENTS.md template
@@ -162,12 +164,17 @@ codebase-audit-and-improve/
 │   ├── improve/                 # /improve skill
 │   └── improve-all/             # /improve-all skill
 ├── templates/                   # Integration templates for non-standard agents
+│   ├── claude/                  # Prompt templates for Claude Code
 │   ├── continue/                # Continue.dev custom commands configuration
 │   └── cursor/                  # Cursor IDE command templates
 ├── tests/                       # Automated test suite
 │   ├── test_check_health.py     # Unit tests for health inspector
 │   ├── test_track_progress.py   # Unit tests for progress tracker
-│   └── test_install_sh.py       # install.sh argument & installation tests
+│   ├── test_install_sh.py       # install.sh argument & installation tests
+│   ├── test_install_ps1.py      # install.ps1 argument & installation tests
+│   └── test_repo_docs.py        # Repository documentation consistency tests
+├── docs/                        # Screenshots and archived audit reports
+│   └── audits/                  # Archived IMPROVEMENTS.md roadmaps
 └── examples/
     └── sample-improvements.md   # Production-grade sample IMPROVEMENTS.md
 ```

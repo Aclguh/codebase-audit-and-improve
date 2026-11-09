@@ -22,8 +22,8 @@ Before pushing to the remote repository, ensure:
      If the user requested deleting upon 100% completion:
      ```bash
      rm IMPROVEMENTS.md
-     git commit -am "chore: remove completed temporary roadmap IMPROVEMENTS.md"
      ```
+     `IMPROVEMENTS.md` is ignored by `.gitignore`, so its deletion needs no commit.
 
 ---
 
