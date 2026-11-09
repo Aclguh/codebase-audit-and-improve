@@ -179,6 +179,25 @@ class TestCheckHealth(unittest.TestCase):
         self.assertTrue(any(".NET" in n for n in stack_names))
         self.assertTrue(any("Gradle" in n for n in stack_names))
 
+    def test_maven_wrapper_command_per_platform(self):
+        Path(os.path.join(self.test_dir, "pom.xml")).touch()
+        Path(os.path.join(self.test_dir, "mvnw")).touch()
+        Path(os.path.join(self.test_dir, "mvnw.cmd")).touch()
+
+        def maven_stack():
+            return [s for s in check_health.detect_stack(self.test_dir) if "Maven" in s["name"]][0]
+
+        with patch.object(sys, "platform", "win32"):
+            self.assertEqual(maven_stack()["lint_cmd"], "mvnw.cmd checkstyle:check")
+
+        # Without the Windows wrapper entry point, cmd.exe cannot run ./mvnw.
+        os.remove(os.path.join(self.test_dir, "mvnw.cmd"))
+        with patch.object(sys, "platform", "win32"):
+            self.assertEqual(maven_stack()["lint_cmd"], "mvn checkstyle:check")
+
+        with patch.object(sys, "platform", "linux"):
+            self.assertEqual(maven_stack()["lint_cmd"], "./mvnw checkstyle:check")
+
     def test_check_gitignore(self):
         # Missing
         is_ignored, msg, _ = check_health.check_gitignore(self.test_dir)

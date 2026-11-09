@@ -231,7 +231,14 @@ def detect_stack(cwd):
 
     # 6. Java / Kotlin (Maven / Gradle)
     if os.path.exists(os.path.join(cwd, "pom.xml")):
-        mvn_cmd = "./mvnw" if os.path.exists(os.path.join(cwd, "mvnw")) else "mvn"
+        has_mvnw = os.path.exists(os.path.join(cwd, "mvnw"))
+        has_mvnw_cmd = os.path.exists(os.path.join(cwd, "mvnw.cmd"))
+        if sys.platform.startswith("win"):
+            # cmd.exe cannot run the POSIX ./mvnw shell script; prefer the
+            # wrapper's .cmd entry point and fall back to the CLI.
+            mvn_cmd = "mvnw.cmd" if has_mvnw_cmd else "mvn"
+        else:
+            mvn_cmd = "./mvnw" if has_mvnw else "mvn"
         stacks.append({
             "name": "Java (Maven)",
             "manifest": "pom.xml",
