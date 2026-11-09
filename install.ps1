@@ -36,6 +36,18 @@ if ([string]::IsNullOrWhiteSpace($UserHome) -or -not [System.IO.Path]::IsPathRoo
 }
 $CurrentDir = Get-Location
 
+# Refuse workspace installs into a filesystem root (C:\ or /), mirroring
+# install.sh: skill destinations are recreated from scratch, so targeting a
+# drive root could rewrite unrelated configuration at that root.
+if ($Workspace) {
+    $WorkspaceRoot = [System.IO.Path]::GetPathRoot($CurrentDir.Path)
+    if ([string]::IsNullOrWhiteSpace($WorkspaceRoot) -or
+        $CurrentDir.Path.TrimEnd('\', '/') -eq $WorkspaceRoot.TrimEnd('\', '/')) {
+        Write-Error "Refusing to install into a filesystem root: $CurrentDir"
+        exit 2
+    }
+}
+
 # Refuse global installs into an empty or filesystem-root home directory.
 if (-not $Workspace) {
     if ([string]::IsNullOrWhiteSpace($UserHome)) {
