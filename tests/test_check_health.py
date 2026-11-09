@@ -61,6 +61,20 @@ class TestCheckHealth(unittest.TestCase):
         self.assertEqual(lint_cmd, "npm run check")
         self.assertEqual(cov_cmd, "npm run coverage")
 
+        # Bun must run the declared package.json script, not its native runner.
+        with open(pkg_json, "w", encoding="utf-8") as f:
+            f.write('{"scripts": {"test": "vitest run"}}')
+        lint_cmd, test_cmd, cov_cmd = check_health.parse_package_json(self.test_dir, "bun")
+        self.assertEqual(test_cmd, "bun run test")
+        self.assertEqual(cov_cmd, "bun run test --coverage")
+
+        # Without a test script, Bun's native runner is the best fallback.
+        with open(pkg_json, "w", encoding="utf-8") as f:
+            f.write('{"scripts": {}}')
+        lint_cmd, test_cmd, cov_cmd = check_health.parse_package_json(self.test_dir, "bun")
+        self.assertEqual(test_cmd, "bun test")
+        self.assertEqual(cov_cmd, "bun test --coverage")
+
     def test_detect_monorepo(self):
         self.assertEqual(check_health.detect_monorepo(self.test_dir), [])
 

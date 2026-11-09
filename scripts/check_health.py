@@ -91,17 +91,23 @@ def parse_package_json(cwd, pkg_mgr):
     else:
         lint_cmd = f"{pkg_mgr} exec eslint ." if shutil.which(pkg_mgr) else "npx eslint ."
 
-    # Test command
+    # Test command. `bun test` runs Bun's built-in test runner, so a declared
+    # package.json "test" script must be invoked explicitly with `bun run`.
     if "test" in scripts:
-        test_cmd = f"{pkg_mgr} test" if pkg_mgr in ("pnpm", "yarn", "bun") else "npm test"
+        test_cmd = "bun run test" if pkg_mgr == "bun" else (
+            f"{pkg_mgr} test" if pkg_mgr in ("pnpm", "yarn") else "npm test"
+        )
     else:
-        test_cmd = f"{pkg_mgr} test"
+        test_cmd = "bun test" if pkg_mgr == "bun" else f"{pkg_mgr} test"
 
     # Coverage command
     if "test:coverage" in scripts:
         coverage_cmd = f"{run_cmd} test:coverage"
     elif "coverage" in scripts:
         coverage_cmd = f"{run_cmd} coverage"
+    elif pkg_mgr == "bun":
+        # `bun run` forwards flags directly; npm-style `--` is unnecessary.
+        coverage_cmd = f"{test_cmd} --coverage"
     else:
         coverage_cmd = f"{test_cmd} -- --coverage"
 
