@@ -633,6 +633,44 @@ class TestCheckHealth(unittest.TestCase):
         self.assertFalse(info["is_clean"])
         self.assertIn("index file corrupt", info["status_error"])
 
+    def test_check_git_status_fails_closed_on_status_timeout(self):
+        def fake_run(cmd, *args, **kwargs):
+            cmd_str = " ".join(cmd)
+            if "rev-parse --is-inside-work-tree" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="true\n")
+            if "branch --show-current" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="feature/demo\n")
+            if "status --porcelain" in cmd_str:
+                raise subprocess.TimeoutExpired(cmd, 15)
+            return subprocess.CompletedProcess(cmd, 0, stdout="")
+
+        with patch("shutil.which", return_value="/usr/bin/git"), patch("subprocess.run", side_effect=fake_run):
+            info = check_health.check_git_status(self.test_dir)
+
+        self.assertTrue(info["is_git"])
+        self.assertFalse(info["is_clean"], "unknown status must not be reported as clean")
+        self.assertIn("Unable to verify working tree status", info["status_error"])
+
+    def test_check_git_status_remote_failure_keeps_verified_status(self):
+        def fake_run(cmd, *args, **kwargs):
+            cmd_str = " ".join(cmd)
+            if "rev-parse --is-inside-work-tree" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="true\n")
+            if "branch --show-current" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="feature/demo\n")
+            if "status --porcelain" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="")
+            raise RuntimeError("remote lookup failed")
+
+        with patch("shutil.which", return_value="/usr/bin/git"), patch("subprocess.run", side_effect=fake_run):
+            info = check_health.check_git_status(self.test_dir)
+
+        # The working tree verdict was already verified, so a later failure
+        # must not turn a clean tree into an unknown one.
+        self.assertTrue(info["is_clean"])
+        self.assertNotIn("status_error", info)
+        self.assertIn("remote lookup failed", info["git_error"])
+
     def test_main_console_reports_unknown_git_status(self):
         import io
         from contextlib import redirect_stdout

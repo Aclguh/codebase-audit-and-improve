@@ -333,7 +333,8 @@ def check_git_status(cwd):
     if not shutil.which("git"):
         result["git_error"] = "git executable not found in PATH"
         return result
-        
+
+    status_verified = False
     try:
         p_check = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], cwd=cwd, capture_output=True, text=True, errors="replace", timeout=15)
         if p_check.returncode != 0:
@@ -367,6 +368,7 @@ def check_git_status(cwd):
             dirty_lines = [line for line in p_status.stdout.splitlines() if line.strip()]
             result["is_clean"] = len(dirty_lines) == 0
             result["dirty_files_count"] = len(dirty_lines)
+            status_verified = True
         
         # Check remote origin
         p_remote = subprocess.run(["git", "remote", "get-url", "origin"], cwd=cwd, capture_output=True, text=True, errors="replace", timeout=15)
@@ -384,7 +386,12 @@ def check_git_status(cwd):
 
     except Exception as e:
         result["git_error"] = str(e)
-        
+        # A timeout or unexpected failure before the status check completed
+        # must never be reported as a clean working tree.
+        if result.get("is_git") and not status_verified:
+            result["is_clean"] = False
+            result["status_error"] = f"Unable to verify working tree status: {e}"
+
     return result
 
 def git_reports_ignored(cwd):
