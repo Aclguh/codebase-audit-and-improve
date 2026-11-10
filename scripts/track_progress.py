@@ -198,16 +198,17 @@ def parse_improvements_file(filepath):
             continue
 
         # 1. Parse Markdown Tables
-        if line_clean.startswith("|") and line_clean.endswith("|"):
-            raw_cells = split_table_row(line_clean)
-
+        # A leading pipe marks a table row; the trailing pipe is optional in
+        # valid Markdown, so requiring it would silently hide real task rows.
+        raw_cells = split_table_row(line_clean) if line_clean.startswith("|") else []
+        if len(raw_cells) >= 2:
             # Check if this row is followed by a separator line (| :--- | :---: |)
             is_followed_by_separator = False
             if idx + 1 < len(lines):
                 next_clean = lines[idx + 1].strip()
-                if next_clean.startswith("|") and next_clean.endswith("|"):
+                if next_clean.startswith("|"):
                     next_cells = split_table_row(next_clean)
-                    if next_cells and all(re.match(r'^:?-+:?$', c) for c in next_cells):
+                    if len(next_cells) >= 2 and all(re.match(r'^:?-+:?$', c) for c in next_cells):
                         is_followed_by_separator = True
 
             # Check if this is a table header
