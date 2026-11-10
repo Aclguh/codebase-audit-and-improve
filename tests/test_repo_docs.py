@@ -57,6 +57,14 @@ class TestRepoDocs(unittest.TestCase):
                 target = REPO_ROOT / link[2:]
                 self.assertTrue(target.is_file(), f"{skill} links to missing file: {link}")
 
+    def test_cleanup_mode_does_not_commit_gitignored_roadmap(self):
+        # IMPROVEMENTS.md is excluded by .gitignore, so deleting it leaves no
+        # tracked change; the docs must not instruct an empty commit.
+        for skill in ("SKILL.md", "skills/improve/SKILL.md"):
+            text = " ".join(read_text(REPO_ROOT / skill).split())
+            self.assertIn("deletion leaves no tracked change and needs no commit", text)
+            self.assertNotIn("chore: remove completed temporary roadmap", text)
+
 
 if __name__ == "__main__":
     unittest.main()

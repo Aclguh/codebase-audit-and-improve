@@ -203,8 +203,8 @@ For each task in IMPROVEMENTS.md:
    - **Archive Mode (Recommended)**: Move `IMPROVEMENTS.md` to `docs/audits/YYYY-MM-DD-codebase-improvements.md` and commit:
      `docs(audit): archive completed improvements roadmap`.
    - **Cleanup Mode**: If specified by user or running `/improve-all` with deletion requested:
-     Delete `IMPROVEMENTS.md` and commit:
-     `chore: remove completed temporary roadmap IMPROVEMENTS.md`.
+     Delete `IMPROVEMENTS.md`. It is excluded by `.gitignore`, so its deletion leaves no tracked
+     change and needs no commit.
 3. **Branch Protection & Pull Request Protocol**:
    - Inspect current branch using `python scripts/check_health.py --json`.
    - If on a protected branch (`main` / `master`):

@@ -88,6 +88,9 @@ def parse_package_json(cwd, pkg_mgr):
         lint_cmd = f"{run_cmd} lint"
     elif "check" in scripts:
         lint_cmd = f"{run_cmd} check"
+    elif pkg_mgr == "bun":
+        # Bun has no `exec` subcommand; `bunx` is its package-binary runner.
+        lint_cmd = "bunx eslint ." if shutil.which("bun") else "npx eslint ."
     else:
         lint_cmd = f"{pkg_mgr} exec eslint ." if shutil.which(pkg_mgr) else "npx eslint ."
 
@@ -456,7 +459,10 @@ def check_gitignore(cwd):
             if not line:
                 continue
         line_clean = line.lstrip("/")
-        if fnmatch.fnmatch("improvements.md", line_clean.lower()):
+        # fnmatch.fnmatch normalizes case through os.path.normcase, so the
+        # fallback follows Git's platform semantics: case-insensitive on
+        # Windows and case-sensitive on POSIX filesystems.
+        if fnmatch.fnmatch("IMPROVEMENTS.md", line_clean):
             ignored = not negate
             if line_clean.lower() in ("improvements.md", "*.md"):
                 message = "Found explicit ignore rule"

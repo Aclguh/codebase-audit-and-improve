@@ -209,6 +209,29 @@ class TestTrackProgress(unittest.TestCase):
         self.assertIsNone(tasks)
         self.assertIn("File not found", err)
 
+    def test_unreadable_path_returns_clean_error(self):
+        # A directory exists but cannot be read as a roadmap file.
+        tasks, err = track_progress.parse_improvements_file(self.test_dir)
+        self.assertIsNone(tasks)
+        self.assertIn("Unable to read file", err)
+
+        # Permission failures during the read must also be reported, not raised.
+        filepath = os.path.join(self.test_dir, "LOCKED.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write("# Locked\n")
+        with patch("builtins.open", side_effect=PermissionError("access denied")):
+            tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(tasks)
+        self.assertIn("Unable to read file", err)
+
+    def test_unreadable_path_cli_exits_two_without_traceback(self):
+        with patch("sys.argv", ["track_progress.py", self.test_dir]):
+            out_buf = StringIO()
+            with patch("sys.stdout", out_buf), self.assertRaises(SystemExit) as cm:
+                track_progress.main()
+        self.assertEqual(cm.exception.code, 2)
+        self.assertIn("Unable to read file", out_buf.getvalue())
+
     def test_main_cli_modes(self):
         # Create completed sample
         filepath = os.path.join(self.test_dir, "DONE.md")
@@ -659,6 +682,40 @@ class TestTrackProgress(unittest.TestCase):
         self.assertTrue(tasks[0]["done"])
         self.assertEqual(tasks[1]["id"], "OPT-02")
         self.assertFalse(tasks[1]["done"])
+
+    def test_table_rows_without_trailing_pipes_are_parsed(self):
+        content = """# Pipe-Optional Table
+| 优先级 | 任务标识 | 任务名称 | 状态
+| :---: | :---: | :--- | :---:
+| P0 | OPT-01 | Fix crash | [x]
+| P1 | OPT-02 | Add tests | [ ]
+"""
+        filepath = os.path.join(self.test_dir, "PIPE_OPTIONAL.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 2)
+        self.assertEqual(tasks[0]["id"], "OPT-01")
+        self.assertTrue(tasks[0]["done"])
+        self.assertEqual(tasks[1]["id"], "OPT-02")
+        self.assertFalse(tasks[1]["done"])
+
+    def test_single_cell_pipe_line_does_not_create_task(self):
+        content = """| 优先级 | 任务标识 | 任务名称 | 状态 |
+| :---: | :---: | :--- | :---: |
+| P0 | OPT-01 | Real task | [ ] |
+| stray line without cells
+"""
+        filepath = os.path.join(self.test_dir, "STRAY_PIPE.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 1)
+        self.assertEqual(tasks[0]["id"], "OPT-01")
 
     def test_clean_cell_markdown_stripping_and_preservation(self):
         self.assertEqual(track_progress.clean_cell(""), "")

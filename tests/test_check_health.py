@@ -75,6 +75,24 @@ class TestCheckHealth(unittest.TestCase):
         self.assertEqual(test_cmd, "bun test")
         self.assertEqual(cov_cmd, "bun test --coverage")
 
+    def test_bun_lint_fallback_uses_bunx(self):
+        pkg_json = os.path.join(self.test_dir, "package.json")
+        with open(pkg_json, "w", encoding="utf-8") as f:
+            f.write('{"scripts": {}}')
+
+        with patch("shutil.which", return_value="/usr/bin/bun"):
+            lint_cmd, _, _ = check_health.parse_package_json(self.test_dir, "bun")
+        self.assertEqual(lint_cmd, "bunx eslint .")
+
+        with patch("shutil.which", return_value=None):
+            lint_cmd, _, _ = check_health.parse_package_json(self.test_dir, "bun")
+        self.assertEqual(lint_cmd, "npx eslint .")
+
+        # Other package managers keep their native `exec` subcommand.
+        with patch("shutil.which", return_value="/usr/bin/pnpm"):
+            lint_cmd, _, _ = check_health.parse_package_json(self.test_dir, "pnpm")
+        self.assertEqual(lint_cmd, "pnpm exec eslint .")
+
     def test_detect_monorepo(self):
         self.assertEqual(check_health.detect_monorepo(self.test_dir), [])
 
@@ -238,10 +256,29 @@ class TestCheckHealth(unittest.TestCase):
     def test_check_gitignore_fnmatch_pattern(self):
         gitignore = os.path.join(self.test_dir, ".gitignore")
         with open(gitignore, "w", encoding="utf-8") as f:
-            f.write("improvements*.md\n")
+            f.write("IMPROVEMENTS*.md\n")
         is_ignored, msg, _ = check_health.check_gitignore(self.test_dir)
         self.assertTrue(is_ignored)
         self.assertIn("Found matching ignore pattern", msg)
+
+    def test_check_gitignore_fallback_case_semantics_follow_platform(self):
+        gitignore = os.path.join(self.test_dir, ".gitignore")
+        case_insensitive = os.path.normcase("A") == os.path.normcase("a")
+
+        # A differently-cased pattern is only an ignore rule where the
+        # filesystem (and therefore Git) is case-insensitive.
+        with open(gitignore, "w", encoding="utf-8") as f:
+            f.write("improvements.md\n")
+        with patch.object(check_health, "git_reports_ignored", return_value=None):
+            is_ignored, msg, _ = check_health.check_gitignore(self.test_dir)
+        self.assertEqual(is_ignored, case_insensitive, msg)
+
+        # An exact-case rule must ignore the file on every platform.
+        with open(gitignore, "w", encoding="utf-8") as f:
+            f.write("IMPROVEMENTS.md\n")
+        with patch.object(check_health, "git_reports_ignored", return_value=None):
+            is_ignored, msg, _ = check_health.check_gitignore(self.test_dir)
+        self.assertTrue(is_ignored, msg)
 
     def test_check_gitignore_negation_overrides_earlier_pattern(self):
         gitignore = os.path.join(self.test_dir, ".gitignore")
