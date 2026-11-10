@@ -459,7 +459,10 @@ def check_gitignore(cwd):
             if not line:
                 continue
         line_clean = line.lstrip("/")
-        if fnmatch.fnmatch("improvements.md", line_clean.lower()):
+        # fnmatch.fnmatch normalizes case through os.path.normcase, so the
+        # fallback follows Git's platform semantics: case-insensitive on
+        # Windows and case-sensitive on POSIX filesystems.
+        if fnmatch.fnmatch("IMPROVEMENTS.md", line_clean):
             ignored = not negate
             if line_clean.lower() in ("improvements.md", "*.md"):
                 message = "Found explicit ignore rule"
