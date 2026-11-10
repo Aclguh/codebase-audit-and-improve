@@ -88,6 +88,9 @@ def parse_package_json(cwd, pkg_mgr):
         lint_cmd = f"{run_cmd} lint"
     elif "check" in scripts:
         lint_cmd = f"{run_cmd} check"
+    elif pkg_mgr == "bun":
+        # Bun has no `exec` subcommand; `bunx` is its package-binary runner.
+        lint_cmd = "bunx eslint ." if shutil.which("bun") else "npx eslint ."
     else:
         lint_cmd = f"{pkg_mgr} exec eslint ." if shutil.which(pkg_mgr) else "npx eslint ."
 

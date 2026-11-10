@@ -75,6 +75,24 @@ class TestCheckHealth(unittest.TestCase):
         self.assertEqual(test_cmd, "bun test")
         self.assertEqual(cov_cmd, "bun test --coverage")
 
+    def test_bun_lint_fallback_uses_bunx(self):
+        pkg_json = os.path.join(self.test_dir, "package.json")
+        with open(pkg_json, "w", encoding="utf-8") as f:
+            f.write('{"scripts": {}}')
+
+        with patch("shutil.which", return_value="/usr/bin/bun"):
+            lint_cmd, _, _ = check_health.parse_package_json(self.test_dir, "bun")
+        self.assertEqual(lint_cmd, "bunx eslint .")
+
+        with patch("shutil.which", return_value=None):
+            lint_cmd, _, _ = check_health.parse_package_json(self.test_dir, "bun")
+        self.assertEqual(lint_cmd, "npx eslint .")
+
+        # Other package managers keep their native `exec` subcommand.
+        with patch("shutil.which", return_value="/usr/bin/pnpm"):
+            lint_cmd, _, _ = check_health.parse_package_json(self.test_dir, "pnpm")
+        self.assertEqual(lint_cmd, "pnpm exec eslint .")
+
     def test_detect_monorepo(self):
         self.assertEqual(check_health.detect_monorepo(self.test_dir), [])
 
