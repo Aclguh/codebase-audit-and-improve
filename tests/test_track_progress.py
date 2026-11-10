@@ -209,6 +209,29 @@ class TestTrackProgress(unittest.TestCase):
         self.assertIsNone(tasks)
         self.assertIn("File not found", err)
 
+    def test_unreadable_path_returns_clean_error(self):
+        # A directory exists but cannot be read as a roadmap file.
+        tasks, err = track_progress.parse_improvements_file(self.test_dir)
+        self.assertIsNone(tasks)
+        self.assertIn("Unable to read file", err)
+
+        # Permission failures during the read must also be reported, not raised.
+        filepath = os.path.join(self.test_dir, "LOCKED.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write("# Locked\n")
+        with patch("builtins.open", side_effect=PermissionError("access denied")):
+            tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(tasks)
+        self.assertIn("Unable to read file", err)
+
+    def test_unreadable_path_cli_exits_two_without_traceback(self):
+        with patch("sys.argv", ["track_progress.py", self.test_dir]):
+            out_buf = StringIO()
+            with patch("sys.stdout", out_buf), self.assertRaises(SystemExit) as cm:
+                track_progress.main()
+        self.assertEqual(cm.exception.code, 2)
+        self.assertIn("Unable to read file", out_buf.getvalue())
+
     def test_main_cli_modes(self):
         # Create completed sample
         filepath = os.path.join(self.test_dir, "DONE.md")

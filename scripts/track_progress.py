@@ -165,9 +165,14 @@ def split_table_row(line):
 def parse_improvements_file(filepath):
     if not os.path.exists(filepath):
         return None, f"File not found: {filepath}"
-        
-    with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
-        lines = f.readlines()
+
+    try:
+        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+            lines = f.readlines()
+    except OSError as e:
+        # Directories, permission errors and files removed between the existence
+        # check and the read must surface as a clean CLI error, not a traceback.
+        return None, f"Unable to read file: {e}"
         
     tasks = []
     in_table = False
