@@ -80,6 +80,11 @@ def parse_package_json(cwd, pkg_mgr):
                 scripts = json.load(f).get("scripts", {})
         except Exception:
             scripts = {}
+    # A legitimate package.json may carry a non-mapping "scripts" value (for
+    # example null or a number). Treat anything else as no scripts so the
+    # membership probes below never raise and abort stack detection.
+    if not isinstance(scripts, dict):
+        scripts = {}
 
     run_cmd = f"{pkg_mgr} run" if pkg_mgr != "npm" else "npm run"
     
