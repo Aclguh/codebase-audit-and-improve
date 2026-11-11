@@ -614,6 +614,43 @@ class TestTrackProgress(unittest.TestCase):
         self.assertEqual(tasks[0]["priority"], "P2")
         self.assertFalse(tasks[0]["done"])
 
+    def test_compact_table_without_name_column_uses_task_id(self):
+        # A recognized task table need not carry a name column. Its status cell
+        # must never leak into the reported task name.
+        content = """| Priority | ID | Status |
+| :---: | :---: | :---: |
+| P1 | OPT-01 | [ ] |
+"""
+        filepath = os.path.join(self.test_dir, "COMPACT_NO_NAME.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 1)
+        self.assertEqual(tasks[0]["id"], "OPT-01")
+        self.assertEqual(tasks[0]["name"], "OPT-01")
+        self.assertEqual(tasks[0]["priority"], "P1")
+        self.assertFalse(tasks[0]["done"])
+
+    def test_name_falls_back_to_first_unmapped_column(self):
+        # The long header is not recognized as a name column; the first column
+        # that is not mapped to another field must supply the task name.
+        content = """| Priority | ID | Detailed implementation task description | Status |
+| :---: | :---: | :--- | :---: |
+| P1 | OPT-02 | Refactor parser internals | [x] |
+"""
+        filepath = os.path.join(self.test_dir, "LONG_NAME_HEADER.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 1)
+        self.assertEqual(tasks[0]["id"], "OPT-02")
+        self.assertEqual(tasks[0]["name"], "Refactor parser internals")
+        self.assertTrue(tasks[0]["done"])
+
     def test_check_json_gate_reports_pending_and_exits_one(self):
         pending_file = os.path.join(self.test_dir, "PENDING.md")
         with open(pending_file, "w", encoding="utf-8") as f:

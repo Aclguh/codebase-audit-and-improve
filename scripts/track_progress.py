@@ -257,9 +257,21 @@ def parse_improvements_file(filepath):
                 m_prio = PRIORITY_TOKEN_RE.search(raw_prio)
                 priority = m_prio.group(1).upper() if m_prio else "P2"
                 name = clean_cell(raw_cells[name_idx]) if (name_idx is not None and name_idx < len(raw_cells)) else ""
-                
-                if not name and len(raw_cells) > 2:
-                    name = clean_cell(raw_cells[2])
+
+                if not name and name_idx is None:
+                    # No name column was detected. Use the first column that is
+                    # not mapped to another field instead of blindly reading the
+                    # third cell, which is the status column in a compact
+                    # "Priority | ID | Status" table.
+                    mapped = set(col_map.values())
+                    fallback_idx = next(
+                        (i for i in range(len(raw_cells)) if i not in mapped),
+                        None,
+                    )
+                    if fallback_idx is not None:
+                        name = clean_cell(raw_cells[fallback_idx])
+                if not name:
+                    name = task_id
                     
                 # Valid task row check
                 if task_id or name:
