@@ -14,7 +14,7 @@ from unittest.mock import patch
 REPO_ROOT = Path(__file__).resolve().parent.parent
 INSTALL_SH = REPO_ROOT / "install.sh"
 def resolve_compatible_bash():
-    """Locate a bash interpreter that can execute posix scripts with local paths.
+    r"""Locate a bash interpreter that can execute posix scripts with local paths.
 
     On Windows, `shutil.which('bash')` frequently points to WSL bash in
     System32 (e.g. C:\Windows\System32\bash.exe), which fails to resolve
@@ -24,8 +24,8 @@ def resolve_compatible_bash():
     the standard system bash.
     """
     if os.name == "nt":
-        prog_files = os.environ.get("ProgramFiles", "C:\Program Files")
-        prog_files_x86 = os.environ.get("ProgramFiles(x86)", "C:\Program Files (x86)")
+        prog_files = os.environ.get("ProgramFiles", "C:\\Program Files")
+        prog_files_x86 = os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")
         local_app_data = os.environ.get("LocalAppData", "")
         candidates = [
             os.path.join(prog_files, "Git", "bin", "bash.exe"),

@@ -584,6 +584,20 @@ class TestCheckHealth(unittest.TestCase):
         self.assertEqual(test_cmd, "npm test")
         self.assertEqual(cov_cmd, "npm test -- --coverage")
 
+    def test_parse_package_json_tolerates_non_mapping_scripts(self):
+        # "scripts" is not required to be an object; null (or any scalar) is
+        # valid JSON and must not make stack detection raise TypeError.
+        pkg_json = os.path.join(self.test_dir, "package.json")
+        for payload in ('{"scripts": null}', '{"scripts": 5}', '{"scripts": "lint"}'):
+            with self.subTest(payload=payload):
+                with open(pkg_json, "w", encoding="utf-8") as f:
+                    f.write(payload)
+                with patch("shutil.which", return_value=None):
+                    lint_cmd, test_cmd, cov_cmd = check_health.parse_package_json(self.test_dir, "npm")
+                self.assertEqual(lint_cmd, "npx eslint .")
+                self.assertEqual(test_cmd, "npm test")
+                self.assertEqual(cov_cmd, "npm test -- --coverage")
+
     def test_python_runner_detection_uv_and_pdm(self):
         Path(os.path.join(self.test_dir, "pyproject.toml")).touch()
         Path(os.path.join(self.test_dir, "uv.lock")).touch()
