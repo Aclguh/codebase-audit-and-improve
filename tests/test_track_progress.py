@@ -614,6 +614,29 @@ class TestTrackProgress(unittest.TestCase):
         self.assertEqual(tasks[0]["priority"], "P2")
         self.assertFalse(tasks[0]["done"])
 
+    def test_ordered_checklist_with_parenthesis_marker(self):
+        # "1)" is a valid CommonMark ordered-list marker and must not make the
+        # whole roadmap parse as zero tasks.
+        content = """# Ordered Roadmap
+1) [ ] OPT-01: First task
+2) [x] OPT-02: Second task
+3) [ ] Third task
+"""
+        filepath = os.path.join(self.test_dir, "ORDERED_PAREN.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 3)
+        self.assertEqual(tasks[0]["id"], "OPT-01")
+        self.assertEqual(tasks[0]["name"], "First task")
+        self.assertFalse(tasks[0]["done"])
+        self.assertEqual(tasks[1]["id"], "OPT-02")
+        self.assertTrue(tasks[1]["done"])
+        self.assertEqual(tasks[2]["name"], "Third task")
+        self.assertFalse(tasks[2]["done"])
+
     def test_compact_table_without_name_column_uses_task_id(self):
         # A recognized task table need not carry a name column. Its status cell
         # must never leak into the reported task name.
