@@ -80,6 +80,15 @@ def is_status_done(val):
             completed_ratio = (int(progress.group(2)) / denominator) if denominator else 0
         if completed_ratio < 1:
             return False
+    # A bare ratio is a self-contained progress statement: "100%" and "5/5"
+    # are finished, while "99%", "3/5" and the degenerate "0/0" are not.
+    ratio_percent = re.match(r'^(\d+(?:\.\d+)?)\s*%\s*$', clean_v)
+    if ratio_percent:
+        return float(ratio_percent.group(1)) >= 100
+    ratio_fraction = re.match(r'^(\d+)\s*/\s*(\d+)\s*$', clean_v)
+    if ratio_fraction:
+        denominator = int(ratio_fraction.group(2))
+        return denominator > 0 and int(ratio_fraction.group(1)) >= denominator
     # Check if cleaned text starts with standard completion keywords (even if followed by commit hash, PR, or note)
     if re.match(r'^(?:done|completed|complete|pass|passed|finished|ok|resolved|fixed|closed|merged|success|implemented|yes|true)\b', clean_v):
         return True

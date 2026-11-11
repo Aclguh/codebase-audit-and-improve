@@ -83,6 +83,12 @@ class TestTrackProgress(unittest.TestCase):
         ]:
             self.assertTrue(track_progress.is_status_done(val), f"Failed for {val}")
 
+    def test_bare_ratio_status(self):
+        for val in ["100%", "100 %", "100.0%", "1/1", "5/5"]:
+            self.assertTrue(track_progress.is_status_done(val), f"Failed for {val}")
+        for val in ["99%", "99.9%", "0%", "0/0", "0/5", "3/5"]:
+            self.assertFalse(track_progress.is_status_done(val), f"Failed for {val}")
+
     def test_standard_table_parsing(self):
         content = """# Roadmap
 | 优先级 | 任务标识 | 任务名称 | 核心收益 | 涉及文件 | 状态 |
