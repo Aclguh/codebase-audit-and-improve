@@ -7,12 +7,22 @@ and inspects .gitignore configuration for safe temporary roadmap tracking.
 
 import os
 import sys
+import re
 import json
 import subprocess
 import shutil
 import glob
 import fnmatch
 from pathlib import Path
+
+# Precompiled credential sanitization pattern for git remote URLs
+REMOTE_URL_CREDENTIAL_RE = re.compile(r'^(https?://)(?:[^:@/\s]+)(?::(?:[^@/\s]+))?@')
+
+def sanitize_remote_url(url):
+    """Sanitize embedded credentials from git remote URL to prevent leaking tokens or passwords."""
+    if not url or not isinstance(url, str):
+        return url
+    return REMOTE_URL_CREDENTIAL_RE.sub(r'\1***@', url)
 
 # Ensure UTF-8 output encoding across all operating systems and Windows CI runners
 if hasattr(sys.stdout, 'reconfigure'):
@@ -48,14 +58,20 @@ def detect_monorepo(cwd):
         monorepo_indicators.append("Lerna")
     if os.path.exists(os.path.join(cwd, "nx.json")):
         monorepo_indicators.append("Nx")
+    if os.path.exists(os.path.join(cwd, "rush.json")):
+        monorepo_indicators.append("Rush")
+    if os.path.exists(os.path.join(cwd, "go.work")):
+        monorepo_indicators.append("Go workspace")
         
     pkg_json_path = os.path.join(cwd, "package.json")
     if os.path.exists(pkg_json_path):
         try:
             with open(pkg_json_path, "r", encoding="utf-8") as f:
                 pkg_data = json.load(f)
-                if "workspaces" in pkg_data:
-                    monorepo_indicators.append("npm/yarn workspaces")
+                if isinstance(pkg_data, dict):
+                    ws = pkg_data.get("workspaces")
+                    if ws and (isinstance(ws, list) or isinstance(ws, dict)):
+                        monorepo_indicators.append("npm/yarn workspaces")
         except Exception:
             pass
 
@@ -243,7 +259,7 @@ def detect_stack(cwd):
             "coverage_cmd": "go test -coverprofile=coverage.out ./..."
         })
 
-    # 6. Java / Kotlin (Maven / Gradle)
+    # 6. Java / Kotlin (Maven)
     if os.path.exists(os.path.join(cwd, "pom.xml")):
         has_mvnw = os.path.exists(os.path.join(cwd, "mvnw"))
         has_mvnw_cmd = os.path.exists(os.path.join(cwd, "mvnw.cmd"))
@@ -260,14 +276,18 @@ def detect_stack(cwd):
             "test_cmd": f"{mvn_cmd} test",
             "coverage_cmd": f"{mvn_cmd} jacoco:report"
         })
-    elif any(os.path.exists(os.path.join(cwd, f)) for f in ["build.gradle", "build.gradle.kts"]):
+
+    # 7. Java / Kotlin (Gradle)
+    gradle_manifests = ["build.gradle.kts", "build.gradle", "settings.gradle.kts", "settings.gradle"]
+    matched_gradle = [f for f in gradle_manifests if os.path.exists(os.path.join(cwd, f))]
+    if matched_gradle:
         is_win = sys.platform.startswith("win")
         gradle_cmd = "gradlew.bat" if is_win and os.path.exists(os.path.join(cwd, "gradlew.bat")) else (
             "./gradlew" if os.path.exists(os.path.join(cwd, "gradlew")) else "gradle"
         )
         stacks.append({
             "name": "Java / Kotlin (Gradle)",
-            "manifest": "build.gradle(.kts)",
+            "manifest": matched_gradle[0],
             "lint_cmd": f"{gradle_cmd} check",
             "test_cmd": f"{gradle_cmd} test",
             "coverage_cmd": f"{gradle_cmd} jacocoTestReport"
@@ -361,7 +381,7 @@ def check_git_status(cwd):
         result["branch"] = branch
         b_lower = branch.lower()
         result["is_protected_branch"] = (
-            b_lower in ("main", "master", "release", "prod", "production")
+            b_lower in ("main", "master", "trunk", "release", "prod", "production")
             or b_lower.startswith(("release/", "releases/", "prod/", "production/", "release-", "prod-"))
         )
 
@@ -381,7 +401,7 @@ def check_git_status(cwd):
         # Check remote origin
         p_remote = subprocess.run(["git", "remote", "get-url", "origin"], cwd=cwd, capture_output=True, text=True, errors="replace", timeout=15)
         if p_remote.returncode == 0 and p_remote.stdout.strip():
-            result["remote_origin"] = p_remote.stdout.strip()
+            result["remote_origin"] = sanitize_remote_url(p_remote.stdout.strip())
 
         else:
             p_remotes = subprocess.run(["git", "remote"], cwd=cwd, capture_output=True, text=True, errors="replace", timeout=15)
@@ -389,7 +409,7 @@ def check_git_status(cwd):
                 first_remote = p_remotes.stdout.strip().splitlines()[0].strip()
                 p_first = subprocess.run(["git", "remote", "get-url", first_remote], cwd=cwd, capture_output=True, text=True, errors="replace", timeout=15)
                 if p_first.returncode == 0 and p_first.stdout.strip():
-                    result["remote_origin"] = p_first.stdout.strip()
+                    result["remote_origin"] = sanitize_remote_url(p_first.stdout.strip())
 
 
     except Exception as e:
