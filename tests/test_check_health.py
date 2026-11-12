@@ -466,6 +466,49 @@ class TestCheckHealth(unittest.TestCase):
             self.assertTrue(info["is_git"])
             self.assertEqual(info["remote_origin"], "https://github.com/org/repo.git")
 
+    def test_sanitize_remote_url(self):
+        self.assertIsNone(check_health.sanitize_remote_url(None))
+        self.assertEqual(check_health.sanitize_remote_url(""), "")
+        self.assertEqual(check_health.sanitize_remote_url(123), 123)
+        self.assertEqual(
+            check_health.sanitize_remote_url("https://github.com/org/repo.git"),
+            "https://github.com/org/repo.git"
+        )
+        self.assertEqual(
+            check_health.sanitize_remote_url("https://ghp_secretToken123456@github.com/org/repo.git"),
+            "https://***@github.com/org/repo.git"
+        )
+        self.assertEqual(
+            check_health.sanitize_remote_url("https://x-access-token:ghs_secret@github.com/org/repo.git"),
+            "https://***@github.com/org/repo.git"
+        )
+        self.assertEqual(
+            check_health.sanitize_remote_url("http://user:pass123@gitlab.corp.local/team/project.git"),
+            "http://***@gitlab.corp.local/team/project.git"
+        )
+        self.assertEqual(
+            check_health.sanitize_remote_url("git@github.com:org/repo.git"),
+            "git@github.com:org/repo.git"
+        )
+
+    def test_check_git_status_sanitizes_remote_credentials(self):
+        def fake_run(cmd, *args, **kwargs):
+            cmd_str = " ".join(cmd)
+            if "rev-parse --is-inside-work-tree" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="true\n")
+            if "branch --show-current" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="main\n")
+            if "status --porcelain" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="")
+            if "remote get-url origin" in cmd_str:
+                return subprocess.CompletedProcess(cmd, 0, stdout="https://token:ghp_secretToken@github.com/org/repo.git\n")
+            return subprocess.CompletedProcess(cmd, 0, stdout="")
+
+        with patch("shutil.which", return_value="/usr/bin/git"), patch("subprocess.run", side_effect=fake_run):
+            info = check_health.check_git_status(self.test_dir)
+            self.assertTrue(info["is_git"])
+            self.assertEqual(info["remote_origin"], "https://***@github.com/org/repo.git")
+
     def test_check_git_status_detached_head_detection(self):
         def fake_run(cmd, *args, **kwargs):
             cmd_str = " ".join(cmd)

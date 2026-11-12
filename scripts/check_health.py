@@ -7,12 +7,22 @@ and inspects .gitignore configuration for safe temporary roadmap tracking.
 
 import os
 import sys
+import re
 import json
 import subprocess
 import shutil
 import glob
 import fnmatch
 from pathlib import Path
+
+# Precompiled credential sanitization pattern for git remote URLs
+REMOTE_URL_CREDENTIAL_RE = re.compile(r'^(https?://)(?:[^:@/\s]+)(?::(?:[^@/\s]+))?@')
+
+def sanitize_remote_url(url):
+    """Sanitize embedded credentials from git remote URL to prevent leaking tokens or passwords."""
+    if not url or not isinstance(url, str):
+        return url
+    return REMOTE_URL_CREDENTIAL_RE.sub(r'\1***@', url)
 
 # Ensure UTF-8 output encoding across all operating systems and Windows CI runners
 if hasattr(sys.stdout, 'reconfigure'):
@@ -381,7 +391,7 @@ def check_git_status(cwd):
         # Check remote origin
         p_remote = subprocess.run(["git", "remote", "get-url", "origin"], cwd=cwd, capture_output=True, text=True, errors="replace", timeout=15)
         if p_remote.returncode == 0 and p_remote.stdout.strip():
-            result["remote_origin"] = p_remote.stdout.strip()
+            result["remote_origin"] = sanitize_remote_url(p_remote.stdout.strip())
 
         else:
             p_remotes = subprocess.run(["git", "remote"], cwd=cwd, capture_output=True, text=True, errors="replace", timeout=15)
@@ -389,7 +399,7 @@ def check_git_status(cwd):
                 first_remote = p_remotes.stdout.strip().splitlines()[0].strip()
                 p_first = subprocess.run(["git", "remote", "get-url", first_remote], cwd=cwd, capture_output=True, text=True, errors="replace", timeout=15)
                 if p_first.returncode == 0 and p_first.stdout.strip():
-                    result["remote_origin"] = p_first.stdout.strip()
+                    result["remote_origin"] = sanitize_remote_url(p_first.stdout.strip())
 
 
     except Exception as e:
