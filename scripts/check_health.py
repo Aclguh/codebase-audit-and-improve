@@ -253,7 +253,7 @@ def detect_stack(cwd):
             "coverage_cmd": "go test -coverprofile=coverage.out ./..."
         })
 
-    # 6. Java / Kotlin (Maven / Gradle)
+    # 6. Java / Kotlin (Maven)
     if os.path.exists(os.path.join(cwd, "pom.xml")):
         has_mvnw = os.path.exists(os.path.join(cwd, "mvnw"))
         has_mvnw_cmd = os.path.exists(os.path.join(cwd, "mvnw.cmd"))
@@ -270,14 +270,18 @@ def detect_stack(cwd):
             "test_cmd": f"{mvn_cmd} test",
             "coverage_cmd": f"{mvn_cmd} jacoco:report"
         })
-    elif any(os.path.exists(os.path.join(cwd, f)) for f in ["build.gradle", "build.gradle.kts"]):
+
+    # 7. Java / Kotlin (Gradle)
+    gradle_manifests = ["build.gradle.kts", "build.gradle", "settings.gradle.kts", "settings.gradle"]
+    matched_gradle = [f for f in gradle_manifests if os.path.exists(os.path.join(cwd, f))]
+    if matched_gradle:
         is_win = sys.platform.startswith("win")
         gradle_cmd = "gradlew.bat" if is_win and os.path.exists(os.path.join(cwd, "gradlew.bat")) else (
             "./gradlew" if os.path.exists(os.path.join(cwd, "gradlew")) else "gradle"
         )
         stacks.append({
             "name": "Java / Kotlin (Gradle)",
-            "manifest": "build.gradle(.kts)",
+            "manifest": matched_gradle[0],
             "lint_cmd": f"{gradle_cmd} check",
             "test_cmd": f"{gradle_cmd} test",
             "coverage_cmd": f"{gradle_cmd} jacocoTestReport"

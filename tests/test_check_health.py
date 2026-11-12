@@ -209,7 +209,20 @@ class TestCheckHealth(unittest.TestCase):
         stacks = check_health.detect_stack(self.test_dir)
         stack_names = [s["name"] for s in stacks]
         self.assertTrue(any(".NET" in n for n in stack_names))
+        gradle_stack = [s for s in stacks if "Gradle" in s["name"]][0]
+        self.assertEqual(gradle_stack["manifest"], "build.gradle")
+
+    def test_detect_gradle_settings_manifest_and_hybrid_with_maven(self):
+        # Multi-project root with only settings.gradle.kts and pom.xml
+        Path(os.path.join(self.test_dir, "pom.xml")).touch()
+        Path(os.path.join(self.test_dir, "settings.gradle.kts")).touch()
+
+        stacks = check_health.detect_stack(self.test_dir)
+        stack_names = [s["name"] for s in stacks]
+        self.assertTrue(any("Maven" in n for n in stack_names))
         self.assertTrue(any("Gradle" in n for n in stack_names))
+        gradle_stack = [s for s in stacks if "Gradle" in s["name"]][0]
+        self.assertEqual(gradle_stack["manifest"], "settings.gradle.kts")
 
     def test_maven_wrapper_command_per_platform(self):
         Path(os.path.join(self.test_dir, "pom.xml")).touch()
