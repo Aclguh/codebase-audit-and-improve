@@ -768,6 +768,27 @@ class TestTrackProgress(unittest.TestCase):
         self.assertEqual(tasks[1]["id"], "OPT-02")
         self.assertFalse(tasks[1]["done"])
 
+    def test_table_rows_without_any_outer_pipes_are_parsed(self):
+        content = """# Table Without Any Outer Pipes (GFM Spec 4.10)
+优先级 | 任务标识 | 任务名称 | 状态
+:---: | :---: | :--- | :---:
+P0 | OPT-01 | Fix GFM parsing | [x]
+P1 | OPT-02 | Add test suite | [ ]
+"""
+        filepath = os.path.join(self.test_dir, "NO_OUTER_PIPES.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 2)
+        self.assertEqual(tasks[0]["id"], "OPT-01")
+        self.assertEqual(tasks[0]["name"], "Fix GFM parsing")
+        self.assertTrue(tasks[0]["done"])
+        self.assertEqual(tasks[1]["id"], "OPT-02")
+        self.assertEqual(tasks[1]["name"], "Add test suite")
+        self.assertFalse(tasks[1]["done"])
+
     def test_single_cell_pipe_line_does_not_create_task(self):
         content = """| 优先级 | 任务标识 | 任务名称 | 状态 |
 | :---: | :---: | :--- | :---: |

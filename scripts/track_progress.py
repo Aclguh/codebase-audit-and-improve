@@ -30,6 +30,7 @@ WRAPPING_RE = re.compile(r'^(\*{1,3}|_{1,3}|~{1,2}|`+)(.+?)\1$', re.DOTALL)
 INLINE_CODE_RE = re.compile(r'`([^`]+)`')
 INLINE_BOLD_RE = re.compile(r'\*\*(.+?)\*\*')
 INLINE_STRIKE_RE = re.compile(r'~~(.+?)~~')
+TABLE_DELIMITER_RE = re.compile(r'^:?-+:?$')
 
 def clean_cell(text):
     """Strip markdown emphasis while preserving identifier characters.
@@ -212,17 +213,19 @@ def parse_improvements_file(filepath):
             continue
 
         # 1. Parse Markdown Tables
-        # A leading pipe marks a table row; the trailing pipe is optional in
-        # valid Markdown, so requiring it would silently hide real task rows.
-        raw_cells = split_table_row(line_clean) if line_clean.startswith("|") else []
+        # Outer pipes are optional in GFM tables (GFM Spec §4.10).
+        is_table_candidate = "|" in line_clean and (
+            in_table or line_clean.startswith("|") or (idx + 1 < len(lines) and "|" in lines[idx + 1])
+        )
+        raw_cells = split_table_row(line_clean) if is_table_candidate else []
         if len(raw_cells) >= 2:
             # Check if this row is followed by a separator line (| :--- | :---: |)
             is_followed_by_separator = False
             if idx + 1 < len(lines):
                 next_clean = lines[idx + 1].strip()
-                if next_clean.startswith("|"):
+                if "|" in next_clean:
                     next_cells = split_table_row(next_clean)
-                    if len(next_cells) >= 2 and all(re.match(r'^:?-+:?$', c) for c in next_cells):
+                    if len(next_cells) >= 2 and all(TABLE_DELIMITER_RE.match(c) for c in next_cells):
                         is_followed_by_separator = True
 
             # Check if this is a table header
@@ -245,7 +248,7 @@ def parse_improvements_file(filepath):
                     continue
             
             # Skip separator line (| :--- | :---: |)
-            if all(re.match(r'^:?-+:?$', c) for c in raw_cells):
+            if all(TABLE_DELIMITER_RE.match(c) for c in raw_cells):
                 continue
                 
             if in_table and col_map:
