@@ -589,6 +589,7 @@ class TestCheckHealth(unittest.TestCase):
         for branch_name, expected_protected in [
             ("main", True),
             ("master", True),
+            ("trunk", True),
             ("release", True),
             ("release/v1.0", True),
             ("releases/2026", True),

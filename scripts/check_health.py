@@ -381,7 +381,7 @@ def check_git_status(cwd):
         result["branch"] = branch
         b_lower = branch.lower()
         result["is_protected_branch"] = (
-            b_lower in ("main", "master", "release", "prod", "production")
+            b_lower in ("main", "master", "trunk", "release", "prod", "production")
             or b_lower.startswith(("release/", "releases/", "prod/", "production/", "release-", "prod-"))
         )
 

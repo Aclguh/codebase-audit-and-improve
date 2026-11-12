@@ -101,6 +101,7 @@ install_skill_files() {
     cp -R "${SCRIPT_DIR}/references" "${dest}/"
     cp -R "${SCRIPT_DIR}/scripts" "${dest}/"
     rm -rf "${dest}/scripts/__pycache__"
+    find "${dest}/scripts" -name "*.pyc" -delete 2>/dev/null || true
     if [ -f "${SCRIPT_DIR}/LICENSE" ]; then
         cp "${SCRIPT_DIR}/LICENSE" "${dest}/"
     fi

@@ -162,11 +162,13 @@ class TestInstallSh(unittest.TestCase):
         skill_dir = os.path.join(self.test_dir, ".claude", "skills", "improve")
         for name in ("STALE.md", ".hidden-stale"):
             Path(os.path.join(skill_dir, name)).write_text("stale", encoding="utf-8")
+        Path(os.path.join(skill_dir, "scripts", "stale.pyc")).write_bytes(b"\x00\x00")
 
         second = self.run_install("--workspace", "claude")
         self.assertEqual(second.returncode, 0, second.stderr)
         for name in ("STALE.md", ".hidden-stale"):
             self.assertFalse(os.path.exists(os.path.join(skill_dir, name)), name)
+        self.assertFalse(os.path.exists(os.path.join(skill_dir, "scripts", "stale.pyc")))
         self.assertTrue(os.path.isfile(os.path.join(skill_dir, "SKILL.md")))
 
 
