@@ -814,6 +814,43 @@ P1 | OPT-02 | Add test suite | [ ]
         self.assertEqual(track_progress.clean_cell("`parse_package_json`"), "parse_package_json")
         self.assertEqual(track_progress.clean_cell("**OPT_01**"), "OPT_01")
         self.assertEqual(track_progress.clean_cell("`OPT-02`"), "OPT-02")
+        self.assertEqual(track_progress.clean_cell("[Completed](https://example.com/pr/1)"), "Completed")
+        self.assertEqual(track_progress.clean_cell("**[Completed](https://example.com/pr/1)**"), "Completed")
+        self.assertEqual(track_progress.clean_cell("Done via [PR #5](https://example.com)"), "Done via PR #5")
+
+    def test_markdown_links_in_status_and_tasks(self):
+        content = """# Roadmap with Links
+| 优先级 | 任务标识 | 任务名称 | 状态 |
+| :---: | :---: | :--- | :---: |
+| P0 | OPT-01 | [Fix memory leak in buffer](https://github.com/org/repo/issues/1) | [Completed](https://github.com/org/repo/pull/10) |
+| P1 | OPT-02 | Add telemetry | [x] [PR #12](https://github.com/org/repo/pull/12) |
+| P2 | OPT-03 | Refactor storage | [ ] |
+
+## Checklists
+- [x] [OPT-04: Fix checklist link](https://github.com/org/repo/pull/15)
+- [ ] [P1] [OPT-05] [Improve parser robustness](https://github.com/org/repo/issues/20)
+"""
+        filepath = os.path.join(self.test_dir, "LINKS.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 5)
+        self.assertEqual(tasks[0]["id"], "OPT-01")
+        self.assertEqual(tasks[0]["name"], "Fix memory leak in buffer")
+        self.assertTrue(tasks[0]["done"])
+        self.assertEqual(tasks[1]["id"], "OPT-02")
+        self.assertTrue(tasks[1]["done"])
+        self.assertEqual(tasks[2]["id"], "OPT-03")
+        self.assertFalse(tasks[2]["done"])
+        self.assertEqual(tasks[3]["id"], "OPT-04")
+        self.assertEqual(tasks[3]["name"], "Fix checklist link")
+        self.assertTrue(tasks[3]["done"])
+        self.assertEqual(tasks[4]["id"], "OPT-05")
+        self.assertEqual(tasks[4]["name"], "Improve parser robustness")
+        self.assertEqual(tasks[4]["priority"], "P1")
+        self.assertFalse(tasks[4]["done"])
 
 
 if __name__ == "__main__":

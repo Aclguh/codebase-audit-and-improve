@@ -30,13 +30,14 @@ WRAPPING_RE = re.compile(r'^(\*{1,3}|_{1,3}|~{1,2}|`+)(.+?)\1$', re.DOTALL)
 INLINE_CODE_RE = re.compile(r'`([^`]+)`')
 INLINE_BOLD_RE = re.compile(r'\*\*(.+?)\*\*')
 INLINE_STRIKE_RE = re.compile(r'~~(.+?)~~')
+INLINE_LINK_RE = re.compile(r'\[([^\]]+)\]\([^)]+\)')
 TABLE_DELIMITER_RE = re.compile(r'^:?-+:?$')
 
 def clean_cell(text):
-    """Strip markdown emphasis while preserving identifier characters.
+    """Strip markdown emphasis and links while preserving identifier characters.
 
-    Only paired (wrapping or inline) markers are removed, so names such as
-    ``parse_package_json`` and IDs such as ``OPT_01`` keep their underscores.
+    Only paired (wrapping or inline) markers and markdown link syntax are removed,
+    so names such as ``parse_package_json`` and IDs such as ``OPT_01`` keep their underscores.
     """
     if not text:
         return ""
@@ -47,10 +48,18 @@ def clean_cell(text):
         if not match:
             break
         cleaned = match.group(2).strip()
+    # Remove inline links: [text](url) -> text
+    cleaned = INLINE_LINK_RE.sub(r'\1', cleaned)
     # Remove inline code spans and paired bold/strikethrough markers anywhere.
     cleaned = INLINE_CODE_RE.sub(r'\1', cleaned)
     cleaned = INLINE_BOLD_RE.sub(r'\1', cleaned)
     cleaned = INLINE_STRIKE_RE.sub(r'\1', cleaned)
+    # Re-peel in case link unpacking exposed outer wrapping markers
+    while True:
+        match = WRAPPING_RE.match(cleaned)
+        if not match:
+            break
+        cleaned = match.group(2).strip()
     return cleaned.strip()
 
 def is_status_done(val):
@@ -304,7 +313,7 @@ def parse_improvements_file(filepath):
         if m_list:
             bracket_val = m_list.group(1).strip()
             is_done = is_status_done(bracket_val) or is_status_done(f"[{bracket_val}]")
-            rest = m_list.group(2).strip()
+            rest = INLINE_LINK_RE.sub(r'\1', m_list.group(2).strip())
 
             # Priority extraction: e.g. [P0], **[P0]**, **P0**, (P0), [P0级]
             priority = "GENERAL"
@@ -333,7 +342,7 @@ def parse_improvements_file(filepath):
             if not task_id:
                 task_id = f"OPT-{len(tasks)+1:02d}"
 
-            name = rest.strip()
+            name = clean_cell(rest)
             if not name:
                 name = task_id
 
