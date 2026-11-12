@@ -58,14 +58,20 @@ def detect_monorepo(cwd):
         monorepo_indicators.append("Lerna")
     if os.path.exists(os.path.join(cwd, "nx.json")):
         monorepo_indicators.append("Nx")
+    if os.path.exists(os.path.join(cwd, "rush.json")):
+        monorepo_indicators.append("Rush")
+    if os.path.exists(os.path.join(cwd, "go.work")):
+        monorepo_indicators.append("Go workspace")
         
     pkg_json_path = os.path.join(cwd, "package.json")
     if os.path.exists(pkg_json_path):
         try:
             with open(pkg_json_path, "r", encoding="utf-8") as f:
                 pkg_data = json.load(f)
-                if "workspaces" in pkg_data:
-                    monorepo_indicators.append("npm/yarn workspaces")
+                if isinstance(pkg_data, dict):
+                    ws = pkg_data.get("workspaces")
+                    if ws and (isinstance(ws, list) or isinstance(ws, dict)):
+                        monorepo_indicators.append("npm/yarn workspaces")
         except Exception:
             pass
 

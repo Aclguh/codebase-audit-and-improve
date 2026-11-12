@@ -100,6 +100,8 @@ class TestCheckHealth(unittest.TestCase):
         Path(os.path.join(self.test_dir, "pnpm-workspace.yaml")).touch()
         Path(os.path.join(self.test_dir, "lerna.json")).touch()
         Path(os.path.join(self.test_dir, "nx.json")).touch()
+        Path(os.path.join(self.test_dir, "rush.json")).touch()
+        Path(os.path.join(self.test_dir, "go.work")).touch()
 
         pkg_json = os.path.join(self.test_dir, "package.json")
         with open(pkg_json, "w", encoding="utf-8") as f:
@@ -114,8 +116,24 @@ class TestCheckHealth(unittest.TestCase):
         self.assertIn("pnpm workspace", indicators)
         self.assertIn("Lerna", indicators)
         self.assertIn("Nx", indicators)
+        self.assertIn("Rush", indicators)
+        self.assertIn("Go workspace", indicators)
         self.assertIn("npm/yarn workspaces", indicators)
         self.assertIn("Cargo workspace", indicators)
+
+    def test_detect_monorepo_falsy_workspaces_are_ignored(self):
+        pkg_json = os.path.join(self.test_dir, "package.json")
+        for falsy_ws in ('{"workspaces": null}', '{"workspaces": []}', '{"workspaces": false}', '{"workspaces": ""}'):
+            with open(pkg_json, "w", encoding="utf-8") as f:
+                f.write(falsy_ws)
+            indicators = check_health.detect_monorepo(self.test_dir)
+            self.assertNotIn("npm/yarn workspaces", indicators, f"Failed for {falsy_ws}")
+
+        # Dict format with packages
+        with open(pkg_json, "w", encoding="utf-8") as f:
+            f.write('{"workspaces": {"packages": ["apps/*"]}}')
+        indicators = check_health.detect_monorepo(self.test_dir)
+        self.assertIn("npm/yarn workspaces", indicators)
 
     def test_detect_python_stack_variations(self):
         # pyproject.toml
