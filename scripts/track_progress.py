@@ -181,6 +181,18 @@ def split_table_row(line):
     cells.append("".join(buf).strip())
     return cells
 
+def priority_sort_key(priority):
+    """Order priority groups by severity: P0, P1, ... Pn, then the rest.
+
+    Plain alphabetical sorting would place ``GENERAL`` (the default for
+    checklists without a priority) ahead of every ``P*`` group, burying
+    blockers below unprioritised tasks in the progress report.
+    """
+    match = re.fullmatch(r'P(\d+)', priority)
+    if match:
+        return (0, int(match.group(1)), "")
+    return (1, 0, priority)
+
 def parse_improvements_file(filepath):
     if not os.path.exists(filepath):
         return None, f"File not found: {filepath}"
@@ -411,7 +423,7 @@ def main():
     pct = (completed / total * 100) if total > 0 else 0.0
     
     # Priority breakdown
-    priorities = sorted(list(set(t['priority'] for t in tasks)))
+    priorities = sorted(set(t['priority'] for t in tasks), key=priority_sort_key)
     by_priority = {}
     for p in priorities:
         p_tasks = [t for t in tasks if t['priority'] == p]

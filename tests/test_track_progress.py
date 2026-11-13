@@ -718,6 +718,38 @@ class TestTrackProgress(unittest.TestCase):
         self.assertEqual(data["pending"], 1)
         self.assertFalse(data["is_all_completed"])
 
+    def test_priority_groups_are_ordered_by_severity(self):
+        # Blockers must lead the report; GENERAL (checklists without a
+        # priority) sorts after every numbered group, not before P0.
+        self.assertEqual(
+            sorted(["GENERAL", "P10", "P2", "P0", "P1"], key=track_progress.priority_sort_key),
+            ["P0", "P1", "P2", "P10", "GENERAL"],
+        )
+
+        filepath = os.path.join(self.test_dir, "PRIORITIES.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(
+                "# Priorities\n"
+                "- [ ] P2 cleanup\n"
+                "- [ ] P0 critical\n"
+                "- [x] P1 fix\n"
+                "- [ ] no priority task\n"
+            )
+
+        old_argv = sys.argv
+        try:
+            sys.argv = ["track_progress.py", filepath, "--json"]
+            out_buf = StringIO()
+            with patch("sys.stdout", out_buf):
+                with self.assertRaises(SystemExit) as cm:
+                    track_progress.main()
+            self.assertEqual(cm.exception.code, 0)
+        finally:
+            sys.argv = old_argv
+
+        data = json.loads(out_buf.getvalue())
+        self.assertEqual(list(data["by_priority"].keys()), ["P0", "P1", "P2", "GENERAL"])
+
     def test_quiet_suppresses_report_but_keeps_gate_exit(self):
         pending_file = os.path.join(self.test_dir, "PENDING.md")
         with open(pending_file, "w", encoding="utf-8") as f:
