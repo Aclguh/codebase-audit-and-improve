@@ -29,13 +29,13 @@ Before pushing to the remote repository, ensure:
 
 ## 2. Branch Protection & Safe PR Workflow
 
-Always check whether the current branch is a protected branch (`main`, `master`, `release`, `prod`):
+Always check whether the current branch is a protected branch (`main`, `master`, `trunk`, `release*`, `prod*`):
 
 ```bash
 git branch --show-current
 ```
 
-### Case A: On a Protected Branch (`main` / `master`)
+### Case A: On a Protected Branch (`main` / `master` / `trunk`)
 Never push direct commits to a protected branch in collaborative repositories. Instead, promote changes to a dedicated feature branch and open a Pull Request:
 
 1. Create a feature branch with all commits:

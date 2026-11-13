@@ -57,7 +57,7 @@ Once all tasks are marked complete via `python scripts/track_progress.py --check
 2. Handle document lifecycle:
    - Archive to `docs/audits/YYYY-MM-DD-codebase-improvements.md` (or delete if clean mode was explicitly requested).
 3. Branch protection & Git remote:
-   - Check if current branch is protected (`main`, `master`, `release`).
+   - Check if current branch is protected (`main`, `master`, `trunk`, `release*`, `prod*`).
    - If on a protected branch: create a feature branch (`git checkout -b refactor/audit-improvements-$(date +%Y%m%d)`), push, and open PR with `gh pr create`.
    - If on a feature branch: push directly with `git push origin <branch>`.
 4. Monitor remote GitHub Actions CI status using [references/ci-monitoring.md](./references/ci-monitoring.md) (`gh run watch` or `gh pr checks --watch`).

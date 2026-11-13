@@ -207,7 +207,7 @@ For each task in IMPROVEMENTS.md:
      change and needs no commit.
 3. **Branch Protection & Pull Request Protocol**:
    - Inspect current branch using `python scripts/check_health.py --json`.
-   - If on a protected branch (`main` / `master`):
+   - If on a protected branch (`main` / `master` / `trunk` / `release*` / `prod*`):
      - Create a feature branch: `git checkout -b refactor/audit-improvements-$(date +%Y%m%d)`.
      - Push feature branch: `git push -u origin <feature-branch>`.
      - Create PR via GitHub CLI: `gh pr create --title "refactor: codebase health audit and improvements"`.
