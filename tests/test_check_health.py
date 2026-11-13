@@ -151,6 +151,25 @@ class TestCheckHealth(unittest.TestCase):
         self.assertEqual(lint_cmd, "npm run lint")
         self.assertEqual(test_cmd, "npm test")
 
+    def test_cargo_workspace_requires_real_table_header(self):
+        # A `[workspace]` mention in a comment or string is not a workspace
+        # root, while every legitimate workspace table header is.
+        cargo = os.path.join(self.test_dir, "Cargo.toml")
+        cases = {
+            '[package]\nname = "demo"\n# [workspace] mentioned in a comment\n': False,
+            '[package]\nname = "demo"\nmetadata = "[workspace]"\n': False,
+            '[workspace]\nmembers = ["core"]\n': True,
+            '[ workspace ]\nmembers = ["core"]\n': True,
+            '[workspace.package]\nversion = "1.0.0"\n': True,
+            '[workspace.dependencies]\nserde = "1"\n': True,
+        }
+        for content, expected in cases.items():
+            with self.subTest(content=content):
+                with open(cargo, "w", encoding="utf-8") as f:
+                    f.write(content)
+                indicators = check_health.detect_monorepo(self.test_dir)
+                self.assertEqual("Cargo workspace" in indicators, expected)
+
     def test_detect_python_stack_variations(self):
         # pyproject.toml
         pyproject = os.path.join(self.test_dir, "pyproject.toml")

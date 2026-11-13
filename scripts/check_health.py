@@ -18,6 +18,10 @@ from pathlib import Path
 # Precompiled credential sanitization pattern for git remote URLs
 REMOTE_URL_CREDENTIAL_RE = re.compile(r'^(https?://)(?:[^:@/\s]+)(?::(?:[^@/\s]+))?@')
 
+# A Cargo workspace root declares `[workspace]` or one of its sub-tables such
+# as `[workspace.package]` / `[workspace.dependencies]`.
+CARGO_WORKSPACE_TABLE_RE = re.compile(r'^\[\s*workspace(?:\.[^\]]*)?\s*\]$')
+
 def sanitize_remote_url(url):
     """Sanitize embedded credentials from git remote URL to prevent leaking tokens or passwords."""
     if not url or not isinstance(url, str):
@@ -81,10 +85,17 @@ def detect_monorepo(cwd):
     cargo_path = os.path.join(cwd, "Cargo.toml")
     if os.path.exists(cargo_path):
         try:
-            with open(cargo_path, "r", encoding="utf-8", errors="ignore") as f:
-                if "[workspace]" in f.read():
+            with open(cargo_path, "r", encoding="utf-8-sig", errors="ignore") as f:
+                cargo_lines = f.readlines()
+            # Only a real table header marks a workspace root: a commented-out
+            # `# [workspace]` or a string value mentioning it must not.
+            for raw_line in cargo_lines:
+                table_header = raw_line.split("#", 1)[0].strip()
+                if CARGO_WORKSPACE_TABLE_RE.match(table_header):
                     monorepo_indicators.append("Cargo workspace")
-        except Exception:
+                    break
+        except (OSError, ValueError):
+            # Unreadable manifests must not abort monorepo detection.
             pass
             
     return monorepo_indicators
