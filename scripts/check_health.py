@@ -194,10 +194,12 @@ def detect_stack(cwd):
     manifest_name = matched_py[0] if matched_py else None
 
     if not matched_py:
-        has_root_py = bool(list(glob.glob(os.path.join(cwd, "*.py"))))
-        if has_root_py:
+        # A single sorted listing keeps the reported manifest stable across
+        # filesystems whose glob order is not alphabetical.
+        root_py_files = sorted(glob.glob(os.path.join(cwd, "*.py")))
+        if root_py_files:
             has_py_source = True
-            manifest_name = os.path.basename(list(glob.glob(os.path.join(cwd, "*.py")))[0])
+            manifest_name = os.path.basename(root_py_files[0])
         else:
             for candidate_dir in ["tests", "scripts", "src"]:
                 d_path = os.path.join(cwd, candidate_dir)

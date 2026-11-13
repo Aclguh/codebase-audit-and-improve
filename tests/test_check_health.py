@@ -170,6 +170,14 @@ class TestCheckHealth(unittest.TestCase):
                 indicators = check_health.detect_monorepo(self.test_dir)
                 self.assertEqual("Cargo workspace" in indicators, expected)
 
+    def test_root_python_manifest_is_deterministic(self):
+        # Creation order must not decide which root module is reported as the
+        # Python manifest; the first name in sorted order wins.
+        for name in ("zeta.py", "alpha.py", "mike.py"):
+            Path(os.path.join(self.test_dir, name)).touch()
+        python_stack = [s for s in check_health.detect_stack(self.test_dir) if s["name"] == "Python"][0]
+        self.assertEqual(python_stack["manifest"], "alpha.py")
+
     def test_detect_python_stack_variations(self):
         # pyproject.toml
         pyproject = os.path.join(self.test_dir, "pyproject.toml")
