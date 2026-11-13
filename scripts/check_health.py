@@ -18,6 +18,10 @@ from pathlib import Path
 # Precompiled credential sanitization pattern for git remote URLs
 REMOTE_URL_CREDENTIAL_RE = re.compile(r'^(https?://)(?:[^:@/\s]+)(?::(?:[^@/\s]+))?@')
 
+# A Cargo workspace root declares `[workspace]` or one of its sub-tables such
+# as `[workspace.package]` / `[workspace.dependencies]`.
+CARGO_WORKSPACE_TABLE_RE = re.compile(r'^\[\s*workspace(?:\.[^\]]*)?\s*\]$')
+
 def sanitize_remote_url(url):
     """Sanitize embedded credentials from git remote URL to prevent leaking tokens or passwords."""
     if not url or not isinstance(url, str):
@@ -66,22 +70,32 @@ def detect_monorepo(cwd):
     pkg_json_path = os.path.join(cwd, "package.json")
     if os.path.exists(pkg_json_path):
         try:
-            with open(pkg_json_path, "r", encoding="utf-8") as f:
+            # utf-8-sig tolerates the BOM Windows editors write ahead of the
+            # JSON body, which json.load would otherwise reject outright.
+            with open(pkg_json_path, "r", encoding="utf-8-sig") as f:
                 pkg_data = json.load(f)
-                if isinstance(pkg_data, dict):
-                    ws = pkg_data.get("workspaces")
-                    if ws and (isinstance(ws, list) or isinstance(ws, dict)):
-                        monorepo_indicators.append("npm/yarn workspaces")
-        except Exception:
+            if isinstance(pkg_data, dict):
+                ws = pkg_data.get("workspaces")
+                if ws and (isinstance(ws, list) or isinstance(ws, dict)):
+                    monorepo_indicators.append("npm/yarn workspaces")
+        except (OSError, ValueError):
+            # Unreadable or malformed manifests must not abort detection.
             pass
 
     cargo_path = os.path.join(cwd, "Cargo.toml")
     if os.path.exists(cargo_path):
         try:
-            with open(cargo_path, "r", encoding="utf-8", errors="ignore") as f:
-                if "[workspace]" in f.read():
+            with open(cargo_path, "r", encoding="utf-8-sig", errors="ignore") as f:
+                cargo_lines = f.readlines()
+            # Only a real table header marks a workspace root: a commented-out
+            # `# [workspace]` or a string value mentioning it must not.
+            for raw_line in cargo_lines:
+                table_header = raw_line.split("#", 1)[0].strip()
+                if CARGO_WORKSPACE_TABLE_RE.match(table_header):
                     monorepo_indicators.append("Cargo workspace")
-        except Exception:
+                    break
+        except (OSError, ValueError):
+            # Unreadable manifests must not abort monorepo detection.
             pass
             
     return monorepo_indicators
@@ -92,9 +106,13 @@ def parse_package_json(cwd, pkg_mgr):
     scripts = {}
     if os.path.exists(pkg_path):
         try:
-            with open(pkg_path, "r", encoding="utf-8") as f:
-                scripts = json.load(f).get("scripts", {})
-        except Exception:
+            # Read as utf-8-sig so a BOM-prefixed manifest (common on Windows)
+            # still yields its scripts instead of silently falling back to defaults.
+            with open(pkg_path, "r", encoding="utf-8-sig") as f:
+                pkg_data = json.load(f)
+            if isinstance(pkg_data, dict):
+                scripts = pkg_data.get("scripts", {})
+        except (OSError, ValueError):
             scripts = {}
     # A legitimate package.json may carry a non-mapping "scripts" value (for
     # example null or a number). Treat anything else as no scripts so the
@@ -176,10 +194,12 @@ def detect_stack(cwd):
     manifest_name = matched_py[0] if matched_py else None
 
     if not matched_py:
-        has_root_py = bool(list(glob.glob(os.path.join(cwd, "*.py"))))
-        if has_root_py:
+        # A single sorted listing keeps the reported manifest stable across
+        # filesystems whose glob order is not alphabetical.
+        root_py_files = sorted(glob.glob(os.path.join(cwd, "*.py")))
+        if root_py_files:
             has_py_source = True
-            manifest_name = os.path.basename(list(glob.glob(os.path.join(cwd, "*.py")))[0])
+            manifest_name = os.path.basename(root_py_files[0])
         else:
             for candidate_dir in ["tests", "scripts", "src"]:
                 d_path = os.path.join(cwd, candidate_dir)

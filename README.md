@@ -43,7 +43,7 @@ This project complies with the **Agent Skills Specification** and provides nativ
   5. **Security & Sandbox Defense**: Defend against path traversal, command injection, and Zip Slip vulnerabilities.
   6. **Testing & Quality Assurance**: Eliminate coverage blind spots in critical logic, add regression assertions, and ensure CI friendliness.
   *(Supports delegating parallel sub-audits to read-only background subagents or child threads in large codebases to preserve main context).*
-- **Monorepo & Polyglot Ecosystem**: Out-of-the-box detection for Flutter/Dart, Node.js (npm/pnpm/yarn/bun), Python (uv/poetry/pdm), Rust, Go, Java/Kotlin (Maven/Gradle), .NET/C#, C/C++ (CMake), PHP, and Ruby.
+- **Monorepo & Polyglot Ecosystem**: Out-of-the-box detection for Flutter/Dart, Node.js (npm/pnpm/yarn/bun), Python (uv/poetry/pdm), Rust, Go, Java/Kotlin (Maven/Gradle), .NET/C#, C/C++ (CMake), PHP, Ruby, and Swift (Swift Package Manager).
 - **Structured Tracking (`IMPROVEMENTS.md`)**:
   - Automatically guarded in `.gitignore` to prevent polluting remote repositories.
   - Standardized task backlog (P0 blocker to P3 polish) with tracked identifiers (`OPT-01`, `OPT-02`, etc.).
@@ -53,7 +53,7 @@ This project complies with the **Agent Skills Specification** and provides nativ
   - Pre-commit gate distinguishes pre-existing legacy warnings from new ones: **0 errors, 0 newly introduced warnings, and total warnings <= baseline**.
   - Tiered testing: Fast targeted unit tests in per-task inner loops, full-suite regression at final verification.
 - **Protected Branch & PR Workflow**:
-  - Automatically detects protected branches (`main`, `master`, `release`).
+  - Automatically detects protected branches (`main`, `master`, `trunk`, `release*`, `prod*`).
   - Promotes improvements to dedicated feature branches and opens Pull Requests via GitHub CLI (`gh pr create`).
 - **Goal-Driven Autonomy**:
   - Pairs with autonomous execution modes (`/improve-all`, `/goal implement all`, or background agent loops), terminating only when all tasks pass verification.
@@ -172,6 +172,7 @@ codebase-audit-and-improve/
 │   ├── test_track_progress.py   # Unit tests for progress tracker
 │   ├── test_install_sh.py       # install.sh argument & installation tests
 │   ├── test_install_ps1.py      # install.ps1 argument & installation tests
+│   ├── test_python_sources.py   # Syntax-warning regression tests
 │   └── test_repo_docs.py        # Repository documentation consistency tests
 ├── docs/                        # Screenshots and archived audit reports
 │   └── audits/                  # Archived IMPROVEMENTS.md roadmaps

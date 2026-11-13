@@ -359,6 +359,29 @@ class TestTrackProgress(unittest.TestCase):
         self.assertEqual(tasks[3]["name"], "IPv6 socket binding")
         self.assertEqual(tasks[4]["id"], "OPT-05")
 
+    def test_checklist_hyphenated_terms_are_not_task_ids(self):
+        content = """# Hyphenated Technical Terms
+- [ ] utf-8 encoding support
+- [ ] sha-256 hashing for artifacts
+- [x] SEC-12: rotate leaked key
+- [ ] OPT-07 Fix crash
+"""
+        filepath = os.path.join(self.test_dir, "HYPHENATED.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 4)
+        self.assertNotEqual(tasks[0]["id"], "UTF-8")
+        self.assertEqual(tasks[0]["name"], "utf-8 encoding support")
+        self.assertNotEqual(tasks[1]["id"], "SHA-256")
+        self.assertEqual(tasks[1]["name"], "sha-256 hashing for artifacts")
+        self.assertEqual(tasks[2]["id"], "SEC-12")
+        self.assertEqual(tasks[2]["name"], "rotate leaked key")
+        self.assertEqual(tasks[3]["id"], "OPT-07")
+        self.assertEqual(tasks[3]["name"], "Fix crash")
+
     def test_checklist_priority_qualifier_keeps_task_id_and_name(self):
         content = """# Priority Qualifiers
 - [ ] [P0级] OPT-07: Numbered task two
@@ -694,6 +717,38 @@ class TestTrackProgress(unittest.TestCase):
         data = json.loads(out_buf.getvalue())
         self.assertEqual(data["pending"], 1)
         self.assertFalse(data["is_all_completed"])
+
+    def test_priority_groups_are_ordered_by_severity(self):
+        # Blockers must lead the report; GENERAL (checklists without a
+        # priority) sorts after every numbered group, not before P0.
+        self.assertEqual(
+            sorted(["GENERAL", "P10", "P2", "P0", "P1"], key=track_progress.priority_sort_key),
+            ["P0", "P1", "P2", "P10", "GENERAL"],
+        )
+
+        filepath = os.path.join(self.test_dir, "PRIORITIES.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(
+                "# Priorities\n"
+                "- [ ] P2 cleanup\n"
+                "- [ ] P0 critical\n"
+                "- [x] P1 fix\n"
+                "- [ ] no priority task\n"
+            )
+
+        old_argv = sys.argv
+        try:
+            sys.argv = ["track_progress.py", filepath, "--json"]
+            out_buf = StringIO()
+            with patch("sys.stdout", out_buf):
+                with self.assertRaises(SystemExit) as cm:
+                    track_progress.main()
+            self.assertEqual(cm.exception.code, 0)
+        finally:
+            sys.argv = old_argv
+
+        data = json.loads(out_buf.getvalue())
+        self.assertEqual(list(data["by_priority"].keys()), ["P0", "P1", "P2", "GENERAL"])
 
     def test_quiet_suppresses_report_but_keeps_gate_exit(self):
         pending_file = os.path.join(self.test_dir, "PENDING.md")

@@ -43,7 +43,7 @@
   5. **安全性与沙箱**：目录穿越漏洞防御、命令注入防御、解压防 Zip Slip。
   6. **测试与质量**：关键逻辑单测盲区、回归断言、CI 友好度。
   *(针对大型项目，支持调用只读子代理或后台并发线程并行扫描，保护主会话上下文)*
-- **全生态与 Monorepo 适配**：开箱即用支持 Flutter/Dart, Node.js (npm/pnpm/yarn/bun), Python (uv/poetry/pdm), Rust, Go, Java/Kotlin (Maven/Gradle), .NET/C#, C/C++ (CMake), PHP, Ruby 等。
+- **全生态与 Monorepo 适配**：开箱即用支持 Flutter/Dart, Node.js (npm/pnpm/yarn/bun), Python (uv/poetry/pdm), Rust, Go, Java/Kotlin (Maven/Gradle), .NET/C#, C/C++ (CMake), PHP, Ruby, Swift (Swift Package Manager) 等。
 - **结构化进度追踪 (`IMPROVEMENTS.md`)**：
   - 自动保障已在 `.gitignore` 中忽略，不污染远程代码仓库。
   - 标准化任务排期表（P0 紧急阻塞 -> P3 规范打磨），分配独立编号（`OPT-01`、`OPT-02` 等）。
@@ -53,7 +53,7 @@
   - 区分存量债务与增量告警：**0 错误、0 新增告警，全仓告警总数 <= 基线告警数**，避免老项目历史 warning 阻断紧急修复。
   - **分级测试**：原子循环期间执行受影响模块的轻量单测，全量回归放到 Phase 5 最终收敛阶段。
 - **保护分支防御与自动化 PR 流**：
-  - 自动识别当前是否为保护分支（`main`, `master`, `release`）。
+  - 自动识别当前是否为保护分支（`main`, `master`, `trunk`, `release*`, `prod*`）。
   - 在保护分支上自动拉取特性分支并通过 GitHub CLI (`gh pr create`) 提 PR，防止直接向主干强推。
 - **目标驱动与自主推进**：
   - 与自主执行模式（如 `/improve-all`、`/goal 全部实现` 或后台任务循环）深度集成，全量通过测试与验证方可终止退出。
@@ -172,6 +172,7 @@ codebase-audit-and-improve/
 │   ├── test_track_progress.py   # 进度解析工具测试
 │   ├── test_install_sh.py       # install.sh 参数与安装集成测试
 │   ├── test_install_ps1.py      # install.ps1 参数与安装集成测试
+│   ├── test_python_sources.py   # 语法告警回归测试
 │   └── test_repo_docs.py        # 仓库文档一致性测试
 ├── docs/                        # 截图与归档审计报告
 │   └── audits/                  # 已归档的 IMPROVEMENTS.md 路线图

@@ -181,6 +181,18 @@ def split_table_row(line):
     cells.append("".join(buf).strip())
     return cells
 
+def priority_sort_key(priority):
+    """Order priority groups by severity: P0, P1, ... Pn, then the rest.
+
+    Plain alphabetical sorting would place ``GENERAL`` (the default for
+    checklists without a priority) ahead of every ``P*`` group, burying
+    blockers below unprioritised tasks in the progress report.
+    """
+    match = re.fullmatch(r'P(\d+)', priority)
+    if match:
+        return (0, int(match.group(1)), "")
+    return (1, 0, priority)
+
 def parse_improvements_file(filepath):
     if not os.path.exists(filepath):
         return None, f"File not found: {filepath}"
@@ -333,7 +345,10 @@ def parse_improvements_file(filepath):
             if m_explicit:
                 candidate = m_explicit.group(1)
                 is_bracketed = bool(re.match(r'^[\[(][^\])]+[\])]', rest))
-                has_separator = bool(re.search(r'[A-Za-z]+[-_]\d+|\d+[-_][A-Za-z]+', candidate))
+                # A generic `word-123` identifier must start with an uppercase
+                # segment. Lowercase tech terms such as `utf-8` or `sha-256`
+                # open many task names and are text, not identifiers.
+                has_separator = bool(re.search(r'[A-Z][A-Z0-9]*[-_]\d+|\d+[-_][A-Za-z]+', candidate))
                 is_issue_num = bool(re.match(r'^#\d+$', candidate))
                 is_standard_prefix = bool(re.match(r'^(?:OPT|TASK|ISSUE|TODO|FEAT|FIX|SEC|PERF|BUG|ARCH|CHORE|TEST)\d+$', candidate, re.IGNORECASE))
                 if is_bracketed or has_separator or is_issue_num or is_standard_prefix:
@@ -408,7 +423,7 @@ def main():
     pct = (completed / total * 100) if total > 0 else 0.0
     
     # Priority breakdown
-    priorities = sorted(list(set(t['priority'] for t in tasks)))
+    priorities = sorted(set(t['priority'] for t in tasks), key=priority_sort_key)
     by_priority = {}
     for p in priorities:
         p_tasks = [t for t in tasks if t['priority'] == p]

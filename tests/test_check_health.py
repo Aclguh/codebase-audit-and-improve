@@ -135,6 +135,49 @@ class TestCheckHealth(unittest.TestCase):
         indicators = check_health.detect_monorepo(self.test_dir)
         self.assertIn("npm/yarn workspaces", indicators)
 
+    def test_package_json_with_utf8_bom_is_parsed(self):
+        # Windows editors commonly prepend a UTF-8 BOM; it must not hide the
+        # manifest's workspaces or scripts from detection.
+        pkg_json = os.path.join(self.test_dir, "package.json")
+        payload = json.dumps({
+            "workspaces": ["packages/*"],
+            "scripts": {"lint": "eslint src/", "test": "vitest run"},
+        })
+        with open(pkg_json, "wb") as f:
+            f.write(b"\xef\xbb\xbf" + payload.encode("utf-8"))
+
+        self.assertIn("npm/yarn workspaces", check_health.detect_monorepo(self.test_dir))
+        lint_cmd, test_cmd, _ = check_health.parse_package_json(self.test_dir, "npm")
+        self.assertEqual(lint_cmd, "npm run lint")
+        self.assertEqual(test_cmd, "npm test")
+
+    def test_cargo_workspace_requires_real_table_header(self):
+        # A `[workspace]` mention in a comment or string is not a workspace
+        # root, while every legitimate workspace table header is.
+        cargo = os.path.join(self.test_dir, "Cargo.toml")
+        cases = {
+            '[package]\nname = "demo"\n# [workspace] mentioned in a comment\n': False,
+            '[package]\nname = "demo"\nmetadata = "[workspace]"\n': False,
+            '[workspace]\nmembers = ["core"]\n': True,
+            '[ workspace ]\nmembers = ["core"]\n': True,
+            '[workspace.package]\nversion = "1.0.0"\n': True,
+            '[workspace.dependencies]\nserde = "1"\n': True,
+        }
+        for content, expected in cases.items():
+            with self.subTest(content=content):
+                with open(cargo, "w", encoding="utf-8") as f:
+                    f.write(content)
+                indicators = check_health.detect_monorepo(self.test_dir)
+                self.assertEqual("Cargo workspace" in indicators, expected)
+
+    def test_root_python_manifest_is_deterministic(self):
+        # Creation order must not decide which root module is reported as the
+        # Python manifest; the first name in sorted order wins.
+        for name in ("zeta.py", "alpha.py", "mike.py"):
+            Path(os.path.join(self.test_dir, name)).touch()
+        python_stack = [s for s in check_health.detect_stack(self.test_dir) if s["name"] == "Python"][0]
+        self.assertEqual(python_stack["manifest"], "alpha.py")
+
     def test_detect_python_stack_variations(self):
         # pyproject.toml
         pyproject = os.path.join(self.test_dir, "pyproject.toml")

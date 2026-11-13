@@ -57,6 +57,22 @@ class TestRepoDocs(unittest.TestCase):
                 target = REPO_ROOT / link[2:]
                 self.assertTrue(target.is_file(), f"{skill} links to missing file: {link}")
 
+    def test_docs_list_detected_stacks_and_protected_branches(self):
+        # Keep the user-facing capability lists aligned with what
+        # scripts/check_health.py actually detects and guards.
+        for readme in ("README.md", "README_zh.md"):
+            text = read_text(REPO_ROOT / readme)
+            self.assertIn("Swift", text, f"{readme} should list Swift stack detection")
+            self.assertIn("trunk", text, f"{readme} should list trunk as protected")
+        for doc in (
+            "SKILL.md",
+            "skills/improve/SKILL.md",
+            "skills/improve-all/SKILL.md",
+            "references/ci-monitoring.md",
+        ):
+            text = " ".join(read_text(REPO_ROOT / doc).split())
+            self.assertIn("trunk", text, f"{doc} should list trunk as protected")
+
     def test_cleanup_mode_does_not_commit_gitignored_roadmap(self):
         # IMPROVEMENTS.md is excluded by .gitignore, so deleting it leaves no
         # tracked change; the docs must not instruct an empty commit.
