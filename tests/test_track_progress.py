@@ -359,6 +359,29 @@ class TestTrackProgress(unittest.TestCase):
         self.assertEqual(tasks[3]["name"], "IPv6 socket binding")
         self.assertEqual(tasks[4]["id"], "OPT-05")
 
+    def test_checklist_hyphenated_terms_are_not_task_ids(self):
+        content = """# Hyphenated Technical Terms
+- [ ] utf-8 encoding support
+- [ ] sha-256 hashing for artifacts
+- [x] SEC-12: rotate leaked key
+- [ ] OPT-07 Fix crash
+"""
+        filepath = os.path.join(self.test_dir, "HYPHENATED.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 4)
+        self.assertNotEqual(tasks[0]["id"], "UTF-8")
+        self.assertEqual(tasks[0]["name"], "utf-8 encoding support")
+        self.assertNotEqual(tasks[1]["id"], "SHA-256")
+        self.assertEqual(tasks[1]["name"], "sha-256 hashing for artifacts")
+        self.assertEqual(tasks[2]["id"], "SEC-12")
+        self.assertEqual(tasks[2]["name"], "rotate leaked key")
+        self.assertEqual(tasks[3]["id"], "OPT-07")
+        self.assertEqual(tasks[3]["name"], "Fix crash")
+
     def test_checklist_priority_qualifier_keeps_task_id_and_name(self):
         content = """# Priority Qualifiers
 - [ ] [P0级] OPT-07: Numbered task two
