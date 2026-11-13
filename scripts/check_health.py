@@ -66,13 +66,16 @@ def detect_monorepo(cwd):
     pkg_json_path = os.path.join(cwd, "package.json")
     if os.path.exists(pkg_json_path):
         try:
-            with open(pkg_json_path, "r", encoding="utf-8") as f:
+            # utf-8-sig tolerates the BOM Windows editors write ahead of the
+            # JSON body, which json.load would otherwise reject outright.
+            with open(pkg_json_path, "r", encoding="utf-8-sig") as f:
                 pkg_data = json.load(f)
-                if isinstance(pkg_data, dict):
-                    ws = pkg_data.get("workspaces")
-                    if ws and (isinstance(ws, list) or isinstance(ws, dict)):
-                        monorepo_indicators.append("npm/yarn workspaces")
-        except Exception:
+            if isinstance(pkg_data, dict):
+                ws = pkg_data.get("workspaces")
+                if ws and (isinstance(ws, list) or isinstance(ws, dict)):
+                    monorepo_indicators.append("npm/yarn workspaces")
+        except (OSError, ValueError):
+            # Unreadable or malformed manifests must not abort detection.
             pass
 
     cargo_path = os.path.join(cwd, "Cargo.toml")
@@ -92,9 +95,13 @@ def parse_package_json(cwd, pkg_mgr):
     scripts = {}
     if os.path.exists(pkg_path):
         try:
-            with open(pkg_path, "r", encoding="utf-8") as f:
-                scripts = json.load(f).get("scripts", {})
-        except Exception:
+            # Read as utf-8-sig so a BOM-prefixed manifest (common on Windows)
+            # still yields its scripts instead of silently falling back to defaults.
+            with open(pkg_path, "r", encoding="utf-8-sig") as f:
+                pkg_data = json.load(f)
+            if isinstance(pkg_data, dict):
+                scripts = pkg_data.get("scripts", {})
+        except (OSError, ValueError):
             scripts = {}
     # A legitimate package.json may carry a non-mapping "scripts" value (for
     # example null or a number). Treat anything else as no scripts so the

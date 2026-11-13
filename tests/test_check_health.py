@@ -135,6 +135,22 @@ class TestCheckHealth(unittest.TestCase):
         indicators = check_health.detect_monorepo(self.test_dir)
         self.assertIn("npm/yarn workspaces", indicators)
 
+    def test_package_json_with_utf8_bom_is_parsed(self):
+        # Windows editors commonly prepend a UTF-8 BOM; it must not hide the
+        # manifest's workspaces or scripts from detection.
+        pkg_json = os.path.join(self.test_dir, "package.json")
+        payload = json.dumps({
+            "workspaces": ["packages/*"],
+            "scripts": {"lint": "eslint src/", "test": "vitest run"},
+        })
+        with open(pkg_json, "wb") as f:
+            f.write(b"\xef\xbb\xbf" + payload.encode("utf-8"))
+
+        self.assertIn("npm/yarn workspaces", check_health.detect_monorepo(self.test_dir))
+        lint_cmd, test_cmd, _ = check_health.parse_package_json(self.test_dir, "npm")
+        self.assertEqual(lint_cmd, "npm run lint")
+        self.assertEqual(test_cmd, "npm test")
+
     def test_detect_python_stack_variations(self):
         # pyproject.toml
         pyproject = os.path.join(self.test_dir, "pyproject.toml")
