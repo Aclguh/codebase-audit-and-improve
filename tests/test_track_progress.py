@@ -233,6 +233,42 @@ class TestTrackProgress(unittest.TestCase):
         self.assertEqual(tasks[1]["id"], "OPT-02")
         self.assertEqual(tasks[1]["name"], "Blocked by dependency XYZ")
 
+    def test_completion_status_header_aliases(self):
+        # "Completion" and "完成情况" are common status headers. Without them a
+        # finished row stays pending forever, and a two-column table is not
+        # recognized as a task table at all.
+        for header in ("Completion", "完成情况"):
+            with self.subTest(header=header):
+                content = (
+                    f"| 优先级 | 任务标识 | 任务名称 | {header} |\n"
+                    "| :---: | :---: | :--- | :---: |\n"
+                    "| P1 | OPT-01 | Finished work | 已完成 |\n"
+                )
+                filepath = os.path.join(self.test_dir, "HEADER.md")
+                with open(filepath, "w", encoding="utf-8") as f:
+                    f.write(content)
+
+                tasks, err = track_progress.parse_improvements_file(filepath)
+                self.assertIsNone(err)
+                self.assertEqual(len(tasks), 1)
+                self.assertTrue(tasks[0]["done"])
+                self.assertEqual(tasks[0]["id"], "OPT-01")
+
+        # A compact table with no id or priority still has a name and a status.
+        content = """| Task | Completion |
+| :--- | :---: |
+| Alpha | Complete |
+"""
+        filepath = os.path.join(self.test_dir, "COMPLETION_ONLY.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 1)
+        self.assertTrue(tasks[0]["done"])
+        self.assertEqual(tasks[0]["name"], "Alpha")
+
     def test_file_not_found(self):
         non_existent = os.path.join(self.test_dir, "missing.md")
         tasks, err = track_progress.parse_improvements_file(non_existent)

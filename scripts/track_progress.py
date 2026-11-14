@@ -139,7 +139,7 @@ def parse_header_columns(header_cells):
             col_map['priority'] = idx
         elif header_contains(c, ['标识', 'id', 'task id', '编号', 'opt']):
             col_map['id'] = idx
-        elif header_contains(c, ['状态', 'status', 'state', '进度', 'progress', 'done', 'completed', 'complete', 'finished', 'resolved']):
+        elif header_contains(c, ['状态', 'status', 'state', '进度', 'progress', 'done', 'completed', 'complete', 'completion', 'finished', 'resolved', '完成情况']):
             col_map['status'] = idx
         elif header_contains(c, ['涉及文件', '文件', 'file', 'files', 'path']):
             col_map['files'] = idx
