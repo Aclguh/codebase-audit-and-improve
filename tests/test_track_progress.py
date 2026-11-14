@@ -209,6 +209,30 @@ class TestTrackProgress(unittest.TestCase):
         self.assertTrue(tasks[7]["done"])
         self.assertEqual(tasks[7]["priority"], "P0")
 
+    def test_blocked_and_in_progress_checklists_remain_tracked(self):
+        # execution-loop.md tells agents to annotate blockers with
+        # "[!] Blocked by ..."; such tasks must stay in the totals as pending
+        # instead of vanishing and letting the CI gate report completion.
+        content = """# Checklist
+- [x] OPT-01: Finished task
+- [!] OPT-02: Blocked by dependency XYZ
+- [~] OPT-03: In progress
+- [/] OPT-04: In progress (slash marker)
+- [-] OPT-05: Cancelled
+"""
+        filepath = os.path.join(self.test_dir, "BLOCKED.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 5)
+        self.assertTrue(tasks[0]["done"])
+        for task in tasks[1:]:
+            self.assertFalse(task["done"], task)
+        self.assertEqual(tasks[1]["id"], "OPT-02")
+        self.assertEqual(tasks[1]["name"], "Blocked by dependency XYZ")
+
     def test_file_not_found(self):
         non_existent = os.path.join(self.test_dir, "missing.md")
         tasks, err = track_progress.parse_improvements_file(non_existent)
