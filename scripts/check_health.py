@@ -314,7 +314,10 @@ def detect_stack(cwd):
         })
 
     # 7. .NET / C#
-    csproj_files = list(glob.glob(os.path.join(cwd, "*.csproj"))) + list(glob.glob(os.path.join(cwd, "*.sln")))
+    # Sort each listing before choosing a manifest: filesystem enumeration
+    # order is not alphabetical, so an unsorted glob makes the reported
+    # manifest differ between machines. Project files stay ahead of solutions.
+    csproj_files = sorted(glob.glob(os.path.join(cwd, "*.csproj"))) + sorted(glob.glob(os.path.join(cwd, "*.sln")))
     if csproj_files:
         stacks.append({
             "name": ".NET / C#",

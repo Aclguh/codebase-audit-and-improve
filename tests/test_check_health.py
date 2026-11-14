@@ -273,6 +273,24 @@ class TestCheckHealth(unittest.TestCase):
         gradle_stack = [s for s in stacks if "Gradle" in s["name"]][0]
         self.assertEqual(gradle_stack["manifest"], "build.gradle")
 
+    def test_dotnet_manifest_selection_is_sorted(self):
+        # Filesystem glob order is not alphabetical; the reported manifest must
+        # still be stable, matching the deterministic Python root manifest.
+        zeta = os.path.join(self.test_dir, "zeta.csproj")
+        alpha = os.path.join(self.test_dir, "alpha.csproj")
+        Path(zeta).touch()
+        Path(alpha).touch()
+        original_glob = check_health.glob.glob
+
+        def fake_glob(pattern, *args, **kwargs):
+            if pattern.endswith("*.csproj"):
+                return [zeta, alpha]
+            return original_glob(pattern, *args, **kwargs)
+
+        with patch.object(check_health.glob, "glob", side_effect=fake_glob):
+            dotnet = [s for s in check_health.detect_stack(self.test_dir) if ".NET" in s["name"]][0]
+        self.assertEqual(dotnet["manifest"], "alpha.csproj")
+
     def test_detect_gradle_settings_manifest_and_hybrid_with_maven(self):
         # Multi-project root with only settings.gradle.kts and pom.xml
         Path(os.path.join(self.test_dir, "pom.xml")).touch()
