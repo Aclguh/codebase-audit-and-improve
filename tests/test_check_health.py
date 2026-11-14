@@ -954,6 +954,29 @@ class TestCheckHealth(unittest.TestCase):
                 self.assertIn(expected, data["gitignore"]["message"])
                 self.assertEqual(data["gitignore"]["is_protected"], recheck[0])
 
+    def test_main_console_surfaces_gitignore_fix_failure(self):
+        # After a failed --fix-gitignore the console must explain why the
+        # append did not work instead of suggesting the same command again.
+        import io
+        from contextlib import redirect_stdout
+
+        with patch("os.getcwd", return_value=self.test_dir), \
+             patch.object(check_health, "add_to_gitignore", return_value=False), \
+             patch.object(check_health, "check_gitignore", side_effect=[
+                 (False, "Missing .gitignore file", os.path.join(self.test_dir, ".gitignore")),
+                 (False, "still missing", os.path.join(self.test_dir, ".gitignore")),
+             ]), \
+             patch.object(check_health, "detect_monorepo", return_value=[]), \
+             patch.object(check_health, "detect_stack", return_value=[]), \
+             patch.object(check_health, "check_git_status", return_value={"is_git": False}), \
+             patch("sys.argv", ["check_health.py", "--fix-gitignore"]):
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                check_health.main()
+        output = buf.getvalue()
+        self.assertIn("Failed to append IMPROVEMENTS.md", output)
+        self.assertNotIn("Recommendation: Run 'python scripts/check_health.py --fix-gitignore'", output)
+
     def test_detect_stack_tolerates_unreadable_source_dirs(self):
         os.makedirs(os.path.join(self.test_dir, "scripts"))
         Path(os.path.join(self.test_dir, "scripts", "tool.py")).touch()

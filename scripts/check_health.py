@@ -685,7 +685,13 @@ def main():
         print("  ✓ IMPROVEMENTS.md is properly protected in .gitignore")
     else:
         print("  ✗ IMPROVEMENTS.md is NOT found in .gitignore!")
-        print("    Recommendation: Run 'python scripts/check_health.py --fix-gitignore' or append manually.")
+        if fix_gitignore:
+            # gitignore_msg explains why the append did not take effect
+            # (permissions, read-only checkout, pattern still unmatched).
+            # Repeating the fix command would fail the same way.
+            print(f"  ! {gitignore_msg}")
+        else:
+            print("    Recommendation: Run 'python scripts/check_health.py --fix-gitignore' or append manually.")
 
     # 4. Baseline command results (if requested)
     if baseline_results:
