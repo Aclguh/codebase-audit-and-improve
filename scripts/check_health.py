@@ -313,7 +313,7 @@ def detect_stack(cwd):
             "coverage_cmd": f"{gradle_cmd} jacocoTestReport"
         })
 
-    # 7. .NET / C#
+    # 8. .NET / C#
     # Sort each listing before choosing a manifest: filesystem enumeration
     # order is not alphabetical, so an unsorted glob makes the reported
     # manifest differ between machines. Project files stay ahead of solutions.
@@ -327,7 +327,7 @@ def detect_stack(cwd):
             "coverage_cmd": "dotnet test /p:CollectCoverage=true"
         })
 
-    # 8. C / C++ (CMake)
+    # 9. C / C++ (CMake)
     if os.path.exists(os.path.join(cwd, "CMakeLists.txt")):
         stacks.append({
             "name": "C / C++ (CMake)",
@@ -337,7 +337,7 @@ def detect_stack(cwd):
             "coverage_cmd": "ctest"
         })
 
-    # 9. PHP
+    # 10. PHP
     if os.path.exists(os.path.join(cwd, "composer.json")):
         stacks.append({
             "name": "PHP (Composer)",
@@ -347,7 +347,7 @@ def detect_stack(cwd):
             "coverage_cmd": "./vendor/bin/phpunit --coverage-text"
         })
 
-    # 10. Ruby
+    # 11. Ruby
     if os.path.exists(os.path.join(cwd, "Gemfile")):
         stacks.append({
             "name": "Ruby (Bundler)",
@@ -357,7 +357,7 @@ def detect_stack(cwd):
             "coverage_cmd": "bundle exec rspec"
         })
         
-    # 11. Swift (Swift Package Manager / Xcode)
+    # 12. Swift (Swift Package Manager / Xcode)
     if os.path.exists(os.path.join(cwd, "Package.swift")):
         has_swiftlint = shutil.which("swiftlint") is not None
         stacks.append({
