@@ -269,6 +269,16 @@ class TestTrackProgress(unittest.TestCase):
         self.assertTrue(tasks[0]["done"])
         self.assertEqual(tasks[0]["name"], "Alpha")
 
+    def test_parenthesized_progress_is_not_done(self):
+        # A percentage or fraction wrapped in parentheses/brackets still
+        # describes partial progress; only 100% or a full fraction is done.
+        for status in ("已完成 (80%)", "Completed (80%)", "已完成（80%）", "已完成 [3/5]"):
+            with self.subTest(status=status):
+                self.assertFalse(track_progress.is_status_done(status))
+        for status in ("Done (100%)", "完成 (5/5)", "已完成"):
+            with self.subTest(status=status):
+                self.assertTrue(track_progress.is_status_done(status))
+
     def test_file_not_found(self):
         non_existent = os.path.join(self.test_dir, "missing.md")
         tasks, err = track_progress.parse_improvements_file(non_existent)
