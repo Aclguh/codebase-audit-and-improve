@@ -209,6 +209,76 @@ class TestTrackProgress(unittest.TestCase):
         self.assertTrue(tasks[7]["done"])
         self.assertEqual(tasks[7]["priority"], "P0")
 
+    def test_blocked_and_in_progress_checklists_remain_tracked(self):
+        # execution-loop.md tells agents to annotate blockers with
+        # "[!] Blocked by ..."; such tasks must stay in the totals as pending
+        # instead of vanishing and letting the CI gate report completion.
+        content = """# Checklist
+- [x] OPT-01: Finished task
+- [!] OPT-02: Blocked by dependency XYZ
+- [~] OPT-03: In progress
+- [/] OPT-04: In progress (slash marker)
+- [-] OPT-05: Cancelled
+"""
+        filepath = os.path.join(self.test_dir, "BLOCKED.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 5)
+        self.assertTrue(tasks[0]["done"])
+        for task in tasks[1:]:
+            self.assertFalse(task["done"], task)
+        self.assertEqual(tasks[1]["id"], "OPT-02")
+        self.assertEqual(tasks[1]["name"], "Blocked by dependency XYZ")
+
+    def test_completion_status_header_aliases(self):
+        # "Completion" and "完成情况" are common status headers. Without them a
+        # finished row stays pending forever, and a two-column table is not
+        # recognized as a task table at all.
+        for header in ("Completion", "完成情况"):
+            with self.subTest(header=header):
+                content = (
+                    f"| 优先级 | 任务标识 | 任务名称 | {header} |\n"
+                    "| :---: | :---: | :--- | :---: |\n"
+                    "| P1 | OPT-01 | Finished work | 已完成 |\n"
+                )
+                filepath = os.path.join(self.test_dir, "HEADER.md")
+                with open(filepath, "w", encoding="utf-8") as f:
+                    f.write(content)
+
+                tasks, err = track_progress.parse_improvements_file(filepath)
+                self.assertIsNone(err)
+                self.assertEqual(len(tasks), 1)
+                self.assertTrue(tasks[0]["done"])
+                self.assertEqual(tasks[0]["id"], "OPT-01")
+
+        # A compact table with no id or priority still has a name and a status.
+        content = """| Task | Completion |
+| :--- | :---: |
+| Alpha | Complete |
+"""
+        filepath = os.path.join(self.test_dir, "COMPLETION_ONLY.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 1)
+        self.assertTrue(tasks[0]["done"])
+        self.assertEqual(tasks[0]["name"], "Alpha")
+
+    def test_parenthesized_progress_is_not_done(self):
+        # A percentage or fraction wrapped in parentheses/brackets still
+        # describes partial progress; only 100% or a full fraction is done.
+        for status in ("已完成 (80%)", "Completed (80%)", "已完成（80%）", "已完成 [3/5]"):
+            with self.subTest(status=status):
+                self.assertFalse(track_progress.is_status_done(status))
+        for status in ("Done (100%)", "完成 (5/5)", "已完成"):
+            with self.subTest(status=status):
+                self.assertTrue(track_progress.is_status_done(status))
+
     def test_file_not_found(self):
         non_existent = os.path.join(self.test_dir, "missing.md")
         tasks, err = track_progress.parse_improvements_file(non_existent)

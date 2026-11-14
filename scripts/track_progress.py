@@ -75,11 +75,12 @@ def is_status_done(val):
     # Strip markdown markers
     clean_v = clean_cell(val).lower()
     # A completion keyword directly followed by a percentage or fraction is a
-    # progress update, not a finished task ("完成 80%", "Completed 3/5").
+    # progress update, not a finished task ("完成 80%", "Completed 3/5"). The
+    # number may also be parenthesised or bracketed ("已完成 (80%)").
     progress = re.match(
         r'^(?:done|completed|complete|pass|passed|finished|ok|resolved|fixed|closed|merged|success|implemented'
         r'|已?完成|已?解决|已?修复|已?实现|已?通过)\s*[度率]?\s*[:：]?\s*'
-        r'(?:(\d+(?:\.\d+)?)\s*%|(\d+)\s*/\s*(\d+))',
+        r'[\(\（\[\【]?\s*(?:(\d+(?:\.\d+)?)\s*%\s*[\)\）\]\】]?|(\d+)\s*/\s*(\d+)\s*[\)\）\]\】]?)',
         clean_v,
     )
     if progress:
@@ -139,7 +140,7 @@ def parse_header_columns(header_cells):
             col_map['priority'] = idx
         elif header_contains(c, ['标识', 'id', 'task id', '编号', 'opt']):
             col_map['id'] = idx
-        elif header_contains(c, ['状态', 'status', 'state', '进度', 'progress', 'done', 'completed', 'complete', 'finished', 'resolved']):
+        elif header_contains(c, ['状态', 'status', 'state', '进度', 'progress', 'done', 'completed', 'complete', 'completion', 'finished', 'resolved', '完成情况']):
             col_map['status'] = idx
         elif header_contains(c, ['涉及文件', '文件', 'file', 'files', 'path']):
             col_map['files'] = idx
@@ -321,7 +322,11 @@ def parse_improvements_file(filepath):
             col_map = {}
             
         # 2. Parse Markdown Checklists
-        m_list = re.match(r'^(?:[-*+]|\d+[.)])\s*\[([ xXvVyY✓✔✅☑√]|\s*)\](?!\()\s*(.+)$', line_clean)
+        # Non-done markers (blocked [!], in-progress [~] or [/], cancelled [-])
+        # must stay tracked as pending: execution-loop.md tells agents to
+        # annotate blockers with "[!] Blocked by ...", and a silently dropped
+        # task would let the CI gate pass while the work is still blocked.
+        m_list = re.match(r'^(?:[-*+]|\d+[.)])\s*\[([ xXvVyY✓✔✅☑√!~/-]|\s*)\](?!\()\s*(.+)$', line_clean)
         if m_list:
             bracket_val = m_list.group(1).strip()
             is_done = is_status_done(bracket_val) or is_status_done(f"[{bracket_val}]")

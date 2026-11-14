@@ -273,6 +273,24 @@ class TestCheckHealth(unittest.TestCase):
         gradle_stack = [s for s in stacks if "Gradle" in s["name"]][0]
         self.assertEqual(gradle_stack["manifest"], "build.gradle")
 
+    def test_dotnet_manifest_selection_is_sorted(self):
+        # Filesystem glob order is not alphabetical; the reported manifest must
+        # still be stable, matching the deterministic Python root manifest.
+        zeta = os.path.join(self.test_dir, "zeta.csproj")
+        alpha = os.path.join(self.test_dir, "alpha.csproj")
+        Path(zeta).touch()
+        Path(alpha).touch()
+        original_glob = check_health.glob.glob
+
+        def fake_glob(pattern, *args, **kwargs):
+            if pattern.endswith("*.csproj"):
+                return [zeta, alpha]
+            return original_glob(pattern, *args, **kwargs)
+
+        with patch.object(check_health.glob, "glob", side_effect=fake_glob):
+            dotnet = [s for s in check_health.detect_stack(self.test_dir) if ".NET" in s["name"]][0]
+        self.assertEqual(dotnet["manifest"], "alpha.csproj")
+
     def test_detect_gradle_settings_manifest_and_hybrid_with_maven(self):
         # Multi-project root with only settings.gradle.kts and pom.xml
         Path(os.path.join(self.test_dir, "pom.xml")).touch()
@@ -935,6 +953,29 @@ class TestCheckHealth(unittest.TestCase):
                 data = json.loads(buf.getvalue())
                 self.assertIn(expected, data["gitignore"]["message"])
                 self.assertEqual(data["gitignore"]["is_protected"], recheck[0])
+
+    def test_main_console_surfaces_gitignore_fix_failure(self):
+        # After a failed --fix-gitignore the console must explain why the
+        # append did not work instead of suggesting the same command again.
+        import io
+        from contextlib import redirect_stdout
+
+        with patch("os.getcwd", return_value=self.test_dir), \
+             patch.object(check_health, "add_to_gitignore", return_value=False), \
+             patch.object(check_health, "check_gitignore", side_effect=[
+                 (False, "Missing .gitignore file", os.path.join(self.test_dir, ".gitignore")),
+                 (False, "still missing", os.path.join(self.test_dir, ".gitignore")),
+             ]), \
+             patch.object(check_health, "detect_monorepo", return_value=[]), \
+             patch.object(check_health, "detect_stack", return_value=[]), \
+             patch.object(check_health, "check_git_status", return_value={"is_git": False}), \
+             patch("sys.argv", ["check_health.py", "--fix-gitignore"]):
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                check_health.main()
+        output = buf.getvalue()
+        self.assertIn("Failed to append IMPROVEMENTS.md", output)
+        self.assertNotIn("Recommendation: Run 'python scripts/check_health.py --fix-gitignore'", output)
 
     def test_detect_stack_tolerates_unreadable_source_dirs(self):
         os.makedirs(os.path.join(self.test_dir, "scripts"))
