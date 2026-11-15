@@ -343,7 +343,13 @@ def parse_improvements_file(filepath):
         # must stay tracked as pending: execution-loop.md tells agents to
         # annotate blockers with "[!] Blocked by ...", and a silently dropped
         # task would let the CI gate pass while the work is still blocked.
-        m_list = re.match(r'^(?:[-*+]|\d+[.)])\s*\[([ xXvVyY✓✔✅☑√!~/-]|\s*)\](?!\()\s*(.+)$', line_clean)
+        m_list = re.match(
+            # The optional U+FE0F (VS16) keeps emoji check boxes such as
+            # "[✅️]" (✅ + VS16) tracked instead of silently dropping the row.
+            r'^(?:[-*+]|\d+[.)])\s*\[([ xXvVyY✓✔✅☑√!~/-]|\s*)\ufe0f?\]'
+            r'(?!\()\s*(.+)$',
+            line_clean,
+        )
         if m_list:
             bracket_val = m_list.group(1).strip()
             is_done = is_status_done(bracket_val) or is_status_done(f"[{bracket_val}]")

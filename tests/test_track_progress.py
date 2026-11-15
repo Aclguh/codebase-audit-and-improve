@@ -233,6 +233,28 @@ class TestTrackProgress(unittest.TestCase):
         self.assertEqual(tasks[1]["id"], "OPT-02")
         self.assertEqual(tasks[1]["name"], "Blocked by dependency XYZ")
 
+    def test_checklist_emoji_variation_selector_is_tracked(self):
+        # Emoji pickers usually emit U+FE0F (VS16) right after ✅/✔/☑. The
+        # checkbox must still match; otherwise the whole task row silently
+        # disappears from the totals.
+        content = (
+            "- [✅️] OPT-01: Checked with VS16\n"
+            "- [✔️] OPT-02: Heavy check with VS16\n"
+            "- [☑️] OPT-03: Ballot box with VS16\n"
+            "- [ ] OPT-04: Pending\n"
+        )
+        filepath = os.path.join(self.test_dir, "VS16.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 4)
+        for index in range(3):
+            self.assertTrue(tasks[index]["done"], tasks[index])
+        self.assertFalse(tasks[3]["done"])
+        self.assertEqual([t["id"] for t in tasks], ["OPT-01", "OPT-02", "OPT-03", "OPT-04"])
+
     def test_completion_status_header_aliases(self):
         # "Completion" and "完成情况" are common status headers. Without them a
         # finished row stays pending forever, and a two-column table is not
