@@ -579,6 +579,39 @@ class TestTrackProgress(unittest.TestCase):
         self.assertEqual(tasks[1]["name"], "Enhance test coverage")
         self.assertFalse(tasks[1]["done"])
 
+    def test_split_table_row_preserves_non_pipe_escapes(self):
+        # Only "\|" is an escaped pipe; other backslash pairs stay literal,
+        # and a trailing backslash must not be dropped with the cell.
+        self.assertEqual(track_progress.split_table_row(r"| a\*b | c\d |"), ["a\\*b", "c\\d"])
+        self.assertEqual(track_progress.split_table_row("| trailing\\"), ["trailing\\"])
+
+    def test_clean_cell_peels_markers_exposed_by_link(self):
+        # Link unpacking can expose wrapping emphasis, which must be peeled too.
+        self.assertEqual(track_progress.clean_cell("[**label**](url)"), "label")
+        self.assertEqual(track_progress.clean_cell("[_label_](url)"), "label")
+
+    def test_whitespace_only_status_is_not_done(self):
+        self.assertFalse(track_progress.is_status_done("   "))
+
+    def test_is_status_done_accepts_yes_and_true(self):
+        for status in ("y", "Y", "yes", "true"):
+            with self.subTest(status=status):
+                self.assertTrue(track_progress.is_status_done(status))
+
+    def test_priority_only_checklist_item_uses_generated_id(self):
+        content = "- [x] [P0]\n"
+        filepath = os.path.join(self.test_dir, "PRIORITY_ONLY.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 1)
+        self.assertTrue(tasks[0]["done"])
+        self.assertEqual(tasks[0]["priority"], "P0")
+        self.assertEqual(tasks[0]["id"], "OPT-01")
+        self.assertEqual(tasks[0]["name"], "OPT-01")
+
     def test_clean_cell_preserves_identifier_underscores(self):
         self.assertEqual(track_progress.clean_cell("parse_package_json"), "parse_package_json")
         self.assertEqual(track_progress.clean_cell("OPT_01"), "OPT_01")
