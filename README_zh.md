@@ -218,7 +218,7 @@ python -m unittest discover tests
 # 安装包与开发依赖
 python -m pip install -e ".[dev]"
 
-# 静态分析（CI 固定 ruff 0.17.3，并使用 E4/E7/E9/F 规则集）
+# 静态分析（CI 固定 ruff 0.17.3，并使用 E4/E7/E9/F/W 规则集）
 python -m ruff check .
 
 # 与 CI 一致的全量测试与覆盖率门禁（scripts/ 覆盖率需 >= 90%）

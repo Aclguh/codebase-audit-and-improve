@@ -222,7 +222,7 @@ def parse_improvements_file(filepath):
         # Directories, permission errors and files removed between the existence
         # check and the read must surface as a clean CLI error, not a traceback.
         return None, f"Unable to read file: {e}"
-        
+
     tasks = []
     in_table = False
     col_map = {}
@@ -285,24 +285,24 @@ def parse_improvements_file(filepath):
                     col_map = {}
                     in_table = False
                     continue
-            
+
             # Skip separator line (| :--- | :---: |)
             if all(TABLE_DELIMITER_RE.match(c) for c in raw_cells):
                 continue
-                
+
             if in_table and col_map:
                 status_idx = col_map.get('status')
                 id_idx = col_map.get('id')
                 prio_idx = col_map.get('priority')
                 name_idx = col_map.get('name')
-                
+
                 # Check if row has status or defaults to pending
                 if status_idx is not None and status_idx < len(raw_cells):
                     status_raw = raw_cells[status_idx]
                     is_done = is_status_done(status_raw)
                 else:
                     is_done = False
-                    
+
                 task_id = clean_cell(raw_cells[id_idx]) if (id_idx is not None and id_idx < len(raw_cells)) else f"TASK-{len(tasks)+1:02d}"
                 raw_prio = clean_cell(raw_cells[prio_idx]).upper() if (prio_idx is not None and prio_idx < len(raw_cells)) else "P2"
                 m_prio = PRIORITY_TOKEN_RE.search(raw_prio)
@@ -323,7 +323,7 @@ def parse_improvements_file(filepath):
                         name = clean_cell(raw_cells[fallback_idx])
                 if not name:
                     name = task_id
-                    
+
                 # Valid task row check
                 if task_id or name:
                     tasks.append({
@@ -337,7 +337,7 @@ def parse_improvements_file(filepath):
         else:
             in_table = False
             col_map = {}
-            
+
         # 2. Parse Markdown Checklists
         # Non-done markers (blocked [!], in-progress [~] or [/], cancelled [-])
         # must stay tracked as pending: execution-loop.md tells agents to
@@ -429,7 +429,7 @@ def main():
         print(f"[!] Error: Expected at most one roadmap file, got {len(file_args)}: {', '.join(file_args)}", file=sys.stderr)
         sys.exit(2)
     target_file = file_args[0] if file_args else "IMPROVEMENTS.md"
-    
+
     tasks, err = parse_improvements_file(target_file)
     if err:
         if as_json:
@@ -437,19 +437,19 @@ def main():
         else:
             print(f"[!] Error: {err}")
         sys.exit(2)
-        
+
     if not tasks:
         if as_json:
             print(json.dumps({"error": "No tracked tasks found", "file": target_file, "tasks": []}, ensure_ascii=False))
         else:
             print(f"[!] No tracked tasks found in {target_file}")
         sys.exit(2)
-        
+
     total = len(tasks)
     completed = sum(1 for t in tasks if t['done'])
     pending = total - completed
     pct = (completed / total * 100) if total > 0 else 0.0
-    
+
     # Priority breakdown
     priorities = sorted(set(t['priority'] for t in tasks), key=priority_sort_key)
     by_priority = {}
@@ -482,14 +482,14 @@ def main():
         print(f"Task Progress Report: {target_file}")
         print(f"Total: {total} | Completed: {completed} | Pending: {pending} | Progress: {pct:.1f}%")
         print("=" * 65)
-        
+
         for p in priorities:
             stats = by_priority[p]
             print(f"[{p}] {stats['completed']}/{stats['total']} completed")
             for t in [t for t in tasks if t['priority'] == p]:
                 status_symbol = "✓" if t['done'] else "○"
                 print(f"    {status_symbol} [{t['id']}] {t['name']}")
-                
+
         print("-" * 65)
         if pending == 0:
             print("🎉 ALL TASKS COMPLETED (100%)! Ready for final verification, cleanup, and CI push.")
@@ -499,7 +499,7 @@ def main():
 
     if check_mode and pending > 0:
         sys.exit(1)
-        
+
     sys.exit(0)
 
 if __name__ == "__main__":
