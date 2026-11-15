@@ -25,6 +25,14 @@ if hasattr(sys.stderr, 'reconfigure'):
 # Priority tokens must stand alone: "P2P" and "OPT-01" are not priorities.
 PRIORITY_TOKEN_RE = re.compile(r'(?i)(?<![A-Za-z0-9])(P\d+)(?![A-Za-z0-9])')
 
+# A status cell may repeat its column label ("Status: Done", "进度: 100%").
+# The label itself carries no completion meaning, so it is stripped before
+# evaluation; otherwise "完成情况: 80%" would be read as finished.
+STATUS_LABEL_RE = re.compile(
+    r'^(?:status|state|progress|completion|完成情况|完成度|进度|状态)\s*[:：]\s*(.+)$',
+    re.IGNORECASE,
+)
+
 # Precompiled markdown stripping regexes for high-performance cell cleaning
 WRAPPING_RE = re.compile(r'^(\*{1,3}|_{1,3}|~{1,2}|`+)(.+?)\1$', re.DOTALL)
 INLINE_CODE_RE = re.compile(r'`([^`]+)`')
@@ -66,14 +74,23 @@ def is_status_done(val):
     """Determine if a status cell represents completion."""
     if not val:
         return False
+    # Strip any leading status label so only the payload decides completion.
+    text = val.strip()
+    while True:
+        labelled = STATUS_LABEL_RE.match(text)
+        if not labelled:
+            break
+        text = labelled.group(1).strip()
+    if not text:
+        return False
     # Direct brackets match: [x], [X], [v], [V], [✓], [✔], [✅], [☑], [√], [y], [Y]
-    if re.search(r'\[[xXvVyY✓✔✅☑√]\]', val):
+    if re.search(r'\[[xXvVyY✓✔✅☑√]\]', text):
         return True
     # Unicode and check symbols anywhere in cell
-    if any(sym in val for sym in ('✓', '✔', '✅', '☑', '√')):
+    if any(sym in text for sym in ('✓', '✔', '✅', '☑', '√')):
         return True
     # Strip markdown markers
-    clean_v = clean_cell(val).lower()
+    clean_v = clean_cell(text).lower()
     # A completion keyword directly followed by a percentage or fraction is a
     # progress update, not a finished task ("完成 80%", "Completed 3/5"). The
     # number may also be parenthesised or bracketed ("已完成 (80%)").

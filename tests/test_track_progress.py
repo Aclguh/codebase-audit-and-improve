@@ -279,6 +279,50 @@ class TestTrackProgress(unittest.TestCase):
             with self.subTest(status=status):
                 self.assertTrue(track_progress.is_status_done(status))
 
+    def test_labeled_status_cells(self):
+        # A status cell may repeat its column label; the payload after the
+        # label decides completion, so partial progress never flips to done
+        # just because the label starts with a completion keyword.
+        for status in (
+            "Status: Done",
+            "State: Completed",
+            "Completion: 100%",
+            "Progress: 5/5",
+            "状态: 已完成",
+            "进度: 100%",
+            "完成情况：已完成",
+        ):
+            with self.subTest(status=status):
+                self.assertTrue(track_progress.is_status_done(status))
+        for status in (
+            "Status: In Progress",
+            "Progress: 3/5",
+            "Completion: 0/3",
+            "状态: 待处理",
+            "进度: 0%",
+            "完成情况: 80%",
+            "完成情况：80%",
+        ):
+            with self.subTest(status=status):
+                self.assertFalse(track_progress.is_status_done(status))
+        # A label with no payload is not a completion statement.
+        self.assertFalse(track_progress.is_status_done("Status:"))
+
+        content = (
+            "| 优先级 | 任务标识 | 任务名称 | 状态 |\n"
+            "| :---: | :---: | :--- | :---: |\n"
+            "| P0 | OPT-01 | Labelled done | Status: Done |\n"
+            "| P1 | OPT-02 | Labelled partial | 完成情况: 80% |\n"
+        )
+        filepath = os.path.join(self.test_dir, "LABELLED.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 2)
+        self.assertTrue(tasks[0]["done"])
+        self.assertFalse(tasks[1]["done"])
+
     def test_file_not_found(self):
         non_existent = os.path.join(self.test_dir, "missing.md")
         tasks, err = track_progress.parse_improvements_file(non_existent)
