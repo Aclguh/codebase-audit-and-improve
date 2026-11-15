@@ -218,7 +218,7 @@ does not actually match on a case-sensitive filesystem is reported as unprotecte
 # Install the package with development tooling
 python -m pip install -e ".[dev]"
 
-# Static analysis (CI pins ruff 0.17.3 and uses the E4/E7/E9/F rule set)
+# Static analysis (CI pins ruff 0.17.3 and uses the E4/E7/E9/F/W rule set)
 python -m ruff check .
 
 # Full suite with the same coverage gate as CI (>= 90% for scripts/)

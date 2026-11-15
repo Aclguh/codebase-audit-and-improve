@@ -53,7 +53,7 @@ def detect_package_manager(cwd):
 def detect_monorepo(cwd):
     """Detect if project is a Monorepo workspace."""
     monorepo_indicators = []
-    
+
     if os.path.exists(os.path.join(cwd, "pnpm-workspace.yaml")):
         monorepo_indicators.append("pnpm workspace")
     if os.path.exists(os.path.join(cwd, "turbo.json")):
@@ -66,7 +66,7 @@ def detect_monorepo(cwd):
         monorepo_indicators.append("Rush")
     if os.path.exists(os.path.join(cwd, "go.work")):
         monorepo_indicators.append("Go workspace")
-        
+
     pkg_json_path = os.path.join(cwd, "package.json")
     if os.path.exists(pkg_json_path):
         try:
@@ -97,7 +97,7 @@ def detect_monorepo(cwd):
         except (OSError, ValueError):
             # Unreadable manifests must not abort monorepo detection.
             pass
-            
+
     return monorepo_indicators
 
 def parse_package_json(cwd, pkg_mgr):
@@ -121,7 +121,7 @@ def parse_package_json(cwd, pkg_mgr):
         scripts = {}
 
     run_cmd = f"{pkg_mgr} run" if pkg_mgr != "npm" else "npm run"
-    
+
     # Lint command
     if "lint" in scripts:
         lint_cmd = f"{run_cmd} lint"
@@ -158,7 +158,7 @@ def parse_package_json(cwd, pkg_mgr):
 def detect_stack(cwd):
     """Detect all active tech stacks in the workspace."""
     stacks = []
-    
+
     # 1. Flutter / Dart
     if os.path.exists(os.path.join(cwd, "pubspec.yaml")):
         has_flutter = shutil.which("flutter") is not None
@@ -169,7 +169,7 @@ def detect_stack(cwd):
             "test_cmd": "flutter test" if has_flutter else "dart test",
             "coverage_cmd": "flutter test --coverage" if has_flutter else "dart test --coverage"
         })
-    
+
     # 2. Node.js / TypeScript / JavaScript
     if os.path.exists(os.path.join(cwd, "package.json")):
         pkg_mgr = detect_package_manager(cwd)
@@ -182,7 +182,7 @@ def detect_stack(cwd):
             "test_cmd": test_cmd,
             "coverage_cmd": coverage_cmd
         })
-    
+
     # 3. Python
     py_files = [
         "pyproject.toml", "setup.py", "setup.cfg", "requirements.txt",
@@ -225,7 +225,7 @@ def detect_stack(cwd):
             runner = "uv run"
         elif os.path.exists(os.path.join(cwd, "pdm.lock")) and shutil.which("pdm"):
             runner = "pdm run"
-            
+
         # Managed runners (poetry/uv/pdm) do not expose `unittest` or
         # `compileall` as console scripts, so module-based commands must go
         # through the interpreter of that environment.
@@ -250,7 +250,7 @@ def detect_stack(cwd):
             coverage_cmd = f"{runner} coverage run -m pytest"
         else:
             coverage_cmd = unittest_cov_cmd
-        
+
         stacks.append({
             "name": "Python",
             "manifest": manifest_name or "python",
@@ -258,7 +258,7 @@ def detect_stack(cwd):
             "test_cmd": test_cmd,
             "coverage_cmd": coverage_cmd
         })
-    
+
     # 4. Rust
     if os.path.exists(os.path.join(cwd, "Cargo.toml")):
         stacks.append({
@@ -268,7 +268,7 @@ def detect_stack(cwd):
             "test_cmd": "cargo test",
             "coverage_cmd": "cargo tarpaulin" if shutil.which("cargo-tarpaulin") else "cargo test"
         })
-    
+
     # 5. Go
     if os.path.exists(os.path.join(cwd, "go.mod")):
         stacks.append({
@@ -356,7 +356,7 @@ def detect_stack(cwd):
             "test_cmd": "bundle exec rspec",
             "coverage_cmd": "bundle exec rspec"
         })
-        
+
     # 12. Swift (Swift Package Manager / Xcode)
     if os.path.exists(os.path.join(cwd, "Package.swift")):
         has_swiftlint = shutil.which("swiftlint") is not None
@@ -367,7 +367,7 @@ def detect_stack(cwd):
             "test_cmd": "swift test",
             "coverage_cmd": "swift test --enable-code-coverage"
         })
-        
+
     return stacks
 
 def check_git_status(cwd):
@@ -380,7 +380,7 @@ def check_git_status(cwd):
         "dirty_files_count": 0,
         "remote_origin": None
     }
-    
+
     if not shutil.which("git"):
         result["git_error"] = "git executable not found in PATH"
         return result
@@ -389,6 +389,12 @@ def check_git_status(cwd):
     try:
         p_check = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], cwd=cwd, capture_output=True, text=True, errors="replace", timeout=15)
         if p_check.returncode != 0:
+            # Outside a work tree Git reports "not a git repository", which is
+            # a normal answer. Any other failure (dubious ownership, corrupted
+            # config) must be surfaced instead of pretending this is not a repo.
+            detail = (p_check.stderr or p_check.stdout).strip()
+            if detail and "not a git repository" not in detail.lower():
+                result["git_error"] = detail
             return result
         result["is_git"] = True
 
@@ -420,7 +426,7 @@ def check_git_status(cwd):
             result["is_clean"] = len(dirty_lines) == 0
             result["dirty_files_count"] = len(dirty_lines)
             status_verified = True
-        
+
         # Check remote origin
         p_remote = subprocess.run(["git", "remote", "get-url", "origin"], cwd=cwd, capture_output=True, text=True, errors="replace", timeout=15)
         if p_remote.returncode == 0 and p_remote.stdout.strip():
@@ -589,16 +595,16 @@ def main():
     as_json = "--json" in sys.argv
     run_baseline = "--run-baseline" in sys.argv
     fix_gitignore = "--fix-gitignore" in sys.argv
-    
+
     # 1. Monorepo detection
     monorepo = detect_monorepo(cwd)
-    
+
     # 2. Stack detection
     stacks = detect_stack(cwd)
-    
+
     # 3. Git status
     git_info = check_git_status(cwd)
-    
+
     # 4. .gitignore check
     is_ignored, gitignore_msg, gitignore_path = check_gitignore(cwd)
     if not is_ignored and fix_gitignore:
@@ -612,7 +618,7 @@ def main():
                 gitignore_msg = f"Appended IMPROVEMENTS.md but it is still not ignored: {recheck_msg}"
         else:
             gitignore_msg = "Failed to append IMPROVEMENTS.md to .gitignore"
-        
+
     baseline_results = []
     if run_baseline and stacks:
         for primary_stack in stacks:
@@ -649,7 +655,7 @@ def main():
     if monorepo:
         print(f"Workspace Architecture: Monorepo ({', '.join(monorepo)})")
     print("=" * 65)
-    
+
     # 1. Tech Stacks
     if not stacks:
         print("[!] No standard tech stack manifest detected in current directory.")
@@ -660,7 +666,7 @@ def main():
             print(f"    * Linter command:   {s['lint_cmd']}")
             print(f"    * Test command:     {s['test_cmd']}")
             print(f"    * Coverage command: {s['coverage_cmd']}")
-            
+
     # 2. Git Status & Safety Guard
     print("\n[+] Git Repository Guard:")
     if git_info["is_git"]:
@@ -677,7 +683,12 @@ def main():
             print(f"  ✗ Working tree is DIRTY ({git_info['dirty_files_count']} uncommitted file(s)!)")
             print("    Recommendation: Commit or stash uncommitted changes before starting.")
     else:
-        print("  ! Current directory is not a Git repository.")
+        if git_info.get("git_error"):
+            # Missing git or an unreadable repository is not the same as
+            # "this directory is not a repository"; surface the real cause.
+            print(f"  ! Git status unavailable: {git_info['git_error']}")
+        else:
+            print("  ! Current directory is not a Git repository.")
 
     # 3. .gitignore Protection Check
     print("\n[+] Checking .gitignore configuration:")

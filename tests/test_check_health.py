@@ -426,6 +426,26 @@ class TestCheckHealth(unittest.TestCase):
         with patch("pathlib.Path.resolve", side_effect=OSError("filesystem unavailable")):
             self.assertFalse(check_health.add_to_gitignore(self.test_dir))
 
+    def test_git_reports_ignored_returns_none_without_git(self):
+        # Without a git executable the caller must fall back to pattern matching.
+        with patch("shutil.which", return_value=None):
+            self.assertIsNone(check_health.git_reports_ignored(self.test_dir))
+
+    def test_git_reports_ignored_returns_none_on_probe_failure(self):
+        with patch("shutil.which", return_value="/usr/bin/git"), \
+             patch("subprocess.run", side_effect=OSError("probe failed")):
+            self.assertIsNone(check_health.git_reports_ignored(self.test_dir))
+
+    def test_check_gitignore_skips_negation_only_line(self):
+        # A bare "!" negates nothing; the fallback pattern scan must skip it
+        # instead of treating the empty pattern as a match.
+        with open(os.path.join(self.test_dir, ".gitignore"), "w", encoding="utf-8") as f:
+            f.write("!\n# comment\n*.md\n")
+        with patch.object(check_health, "git_reports_ignored", return_value=None):
+            is_ignored, msg, _ = check_health.check_gitignore(self.test_dir)
+        self.assertTrue(is_ignored)
+        self.assertIn("explicit ignore rule", msg)
+
     def test_check_git_status_missing_git(self):
         with patch("shutil.which", return_value=None):
             info = check_health.check_git_status(self.test_dir)
@@ -783,6 +803,57 @@ class TestCheckHealth(unittest.TestCase):
         self.assertFalse(info["is_git"])
         self.assertIn("git exploded", info["git_error"])
 
+    def test_check_git_status_reports_unexpected_rev_parse_failure(self):
+        # "fatal: not a git repository" is a normal answer outside a work tree,
+        # but a dubious-ownership (or similar) failure must be surfaced instead
+        # of being reported as a plain non-repository directory.
+        def fake_run(cmd, *args, **kwargs):
+            return subprocess.CompletedProcess(
+                cmd,
+                128,
+                stdout="",
+                stderr="fatal: detected dubious ownership in repository at '/repo'\n",
+            )
+
+        with patch("shutil.which", return_value="/usr/bin/git"), patch("subprocess.run", side_effect=fake_run):
+            info = check_health.check_git_status(self.test_dir)
+
+        self.assertFalse(info["is_git"])
+        self.assertIn("dubious ownership", info["git_error"])
+
+    def test_check_git_status_ignores_not_a_repository_detail(self):
+        # A directory outside any work tree is not an error condition.
+        def fake_run(cmd, *args, **kwargs):
+            return subprocess.CompletedProcess(
+                cmd,
+                128,
+                stdout="",
+                stderr="fatal: not a git repository (or any of the parent directories): .git\n",
+            )
+
+        with patch("shutil.which", return_value="/usr/bin/git"), patch("subprocess.run", side_effect=fake_run):
+            info = check_health.check_git_status(self.test_dir)
+
+        self.assertFalse(info["is_git"])
+        self.assertNotIn("git_error", info)
+
+    def test_main_console_reports_git_unavailable(self):
+        import io
+        from contextlib import redirect_stdout
+
+        fake_git = {"is_git": False, "git_error": "git executable not found in PATH"}
+        with patch.object(check_health, "detect_monorepo", return_value=[]), \
+             patch.object(check_health, "detect_stack", return_value=[]), \
+             patch.object(check_health, "check_git_status", return_value=fake_git), \
+             patch.object(check_health, "check_gitignore", return_value=(True, "ok", ".gitignore")), \
+             patch("sys.argv", ["check_health.py"]):
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                check_health.main()
+        output = buf.getvalue()
+        self.assertIn("Git status unavailable: git executable not found in PATH", output)
+        self.assertNotIn("not a Git repository", output)
+
     def test_check_git_status_detached_head_fallback(self):
         def fake_run(cmd, *args, **kwargs):
             cmd_str = " ".join(cmd)
@@ -857,6 +928,27 @@ class TestCheckHealth(unittest.TestCase):
         self.assertTrue(info["is_clean"])
         self.assertNotIn("status_error", info)
         self.assertIn("remote lookup failed", info["git_error"])
+
+    def test_main_console_reports_clean_working_tree(self):
+        import io
+        from contextlib import redirect_stdout
+
+        fake_git = {
+            "is_git": True,
+            "branch": "feature/demo",
+            "is_protected_branch": False,
+            "is_clean": True,
+            "dirty_files_count": 0,
+        }
+        with patch.object(check_health, "detect_monorepo", return_value=[]), \
+             patch.object(check_health, "detect_stack", return_value=[]), \
+             patch.object(check_health, "check_git_status", return_value=fake_git), \
+             patch.object(check_health, "check_gitignore", return_value=(True, "ok", ".gitignore")), \
+             patch("sys.argv", ["check_health.py"]):
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                check_health.main()
+        self.assertIn("Working tree is clean", buf.getvalue())
 
     def test_main_console_reports_unknown_git_status(self):
         import io

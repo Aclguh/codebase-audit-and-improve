@@ -25,6 +25,14 @@ if hasattr(sys.stderr, 'reconfigure'):
 # Priority tokens must stand alone: "P2P" and "OPT-01" are not priorities.
 PRIORITY_TOKEN_RE = re.compile(r'(?i)(?<![A-Za-z0-9])(P\d+)(?![A-Za-z0-9])')
 
+# A status cell may repeat its column label ("Status: Done", "进度: 100%").
+# The label itself carries no completion meaning, so it is stripped before
+# evaluation; otherwise "完成情况: 80%" would be read as finished.
+STATUS_LABEL_RE = re.compile(
+    r'^(?:status|state|progress|completion|完成情况|完成度|进度|状态)\s*[:：]\s*(.+)$',
+    re.IGNORECASE,
+)
+
 # Precompiled markdown stripping regexes for high-performance cell cleaning
 WRAPPING_RE = re.compile(r'^(\*{1,3}|_{1,3}|~{1,2}|`+)(.+?)\1$', re.DOTALL)
 INLINE_CODE_RE = re.compile(r'`([^`]+)`')
@@ -66,14 +74,23 @@ def is_status_done(val):
     """Determine if a status cell represents completion."""
     if not val:
         return False
+    # Strip any leading status label so only the payload decides completion.
+    text = val.strip()
+    while True:
+        labelled = STATUS_LABEL_RE.match(text)
+        if not labelled:
+            break
+        text = labelled.group(1).strip()
+    if not text:
+        return False
     # Direct brackets match: [x], [X], [v], [V], [✓], [✔], [✅], [☑], [√], [y], [Y]
-    if re.search(r'\[[xXvVyY✓✔✅☑√]\]', val):
+    if re.search(r'\[[xXvVyY✓✔✅☑√]\]', text):
         return True
     # Unicode and check symbols anywhere in cell
-    if any(sym in val for sym in ('✓', '✔', '✅', '☑', '√')):
+    if any(sym in text for sym in ('✓', '✔', '✅', '☑', '√')):
         return True
     # Strip markdown markers
-    clean_v = clean_cell(val).lower()
+    clean_v = clean_cell(text).lower()
     # A completion keyword directly followed by a percentage or fraction is a
     # progress update, not a finished task ("完成 80%", "Completed 3/5"). The
     # number may also be parenthesised or bracketed ("已完成 (80%)").
@@ -205,7 +222,7 @@ def parse_improvements_file(filepath):
         # Directories, permission errors and files removed between the existence
         # check and the read must surface as a clean CLI error, not a traceback.
         return None, f"Unable to read file: {e}"
-        
+
     tasks = []
     in_table = False
     col_map = {}
@@ -268,24 +285,24 @@ def parse_improvements_file(filepath):
                     col_map = {}
                     in_table = False
                     continue
-            
+
             # Skip separator line (| :--- | :---: |)
             if all(TABLE_DELIMITER_RE.match(c) for c in raw_cells):
                 continue
-                
+
             if in_table and col_map:
                 status_idx = col_map.get('status')
                 id_idx = col_map.get('id')
                 prio_idx = col_map.get('priority')
                 name_idx = col_map.get('name')
-                
+
                 # Check if row has status or defaults to pending
                 if status_idx is not None and status_idx < len(raw_cells):
                     status_raw = raw_cells[status_idx]
                     is_done = is_status_done(status_raw)
                 else:
                     is_done = False
-                    
+
                 task_id = clean_cell(raw_cells[id_idx]) if (id_idx is not None and id_idx < len(raw_cells)) else f"TASK-{len(tasks)+1:02d}"
                 raw_prio = clean_cell(raw_cells[prio_idx]).upper() if (prio_idx is not None and prio_idx < len(raw_cells)) else "P2"
                 m_prio = PRIORITY_TOKEN_RE.search(raw_prio)
@@ -306,7 +323,7 @@ def parse_improvements_file(filepath):
                         name = clean_cell(raw_cells[fallback_idx])
                 if not name:
                     name = task_id
-                    
+
                 # Valid task row check
                 if task_id or name:
                     tasks.append({
@@ -320,13 +337,19 @@ def parse_improvements_file(filepath):
         else:
             in_table = False
             col_map = {}
-            
+
         # 2. Parse Markdown Checklists
         # Non-done markers (blocked [!], in-progress [~] or [/], cancelled [-])
         # must stay tracked as pending: execution-loop.md tells agents to
         # annotate blockers with "[!] Blocked by ...", and a silently dropped
         # task would let the CI gate pass while the work is still blocked.
-        m_list = re.match(r'^(?:[-*+]|\d+[.)])\s*\[([ xXvVyY✓✔✅☑√!~/-]|\s*)\](?!\()\s*(.+)$', line_clean)
+        m_list = re.match(
+            # The optional U+FE0F (VS16) keeps emoji check boxes such as
+            # "[✅️]" (✅ + VS16) tracked instead of silently dropping the row.
+            r'^(?:[-*+]|\d+[.)])\s*\[([ xXvVyY✓✔✅☑√!~/-]|\s*)\ufe0f?\]'
+            r'(?!\()\s*(.+)$',
+            line_clean,
+        )
         if m_list:
             bracket_val = m_list.group(1).strip()
             is_done = is_status_done(bracket_val) or is_status_done(f"[{bracket_val}]")
@@ -406,7 +429,7 @@ def main():
         print(f"[!] Error: Expected at most one roadmap file, got {len(file_args)}: {', '.join(file_args)}", file=sys.stderr)
         sys.exit(2)
     target_file = file_args[0] if file_args else "IMPROVEMENTS.md"
-    
+
     tasks, err = parse_improvements_file(target_file)
     if err:
         if as_json:
@@ -414,19 +437,19 @@ def main():
         else:
             print(f"[!] Error: {err}")
         sys.exit(2)
-        
+
     if not tasks:
         if as_json:
             print(json.dumps({"error": "No tracked tasks found", "file": target_file, "tasks": []}, ensure_ascii=False))
         else:
             print(f"[!] No tracked tasks found in {target_file}")
         sys.exit(2)
-        
+
     total = len(tasks)
     completed = sum(1 for t in tasks if t['done'])
     pending = total - completed
     pct = (completed / total * 100) if total > 0 else 0.0
-    
+
     # Priority breakdown
     priorities = sorted(set(t['priority'] for t in tasks), key=priority_sort_key)
     by_priority = {}
@@ -459,14 +482,14 @@ def main():
         print(f"Task Progress Report: {target_file}")
         print(f"Total: {total} | Completed: {completed} | Pending: {pending} | Progress: {pct:.1f}%")
         print("=" * 65)
-        
+
         for p in priorities:
             stats = by_priority[p]
             print(f"[{p}] {stats['completed']}/{stats['total']} completed")
             for t in [t for t in tasks if t['priority'] == p]:
                 status_symbol = "✓" if t['done'] else "○"
                 print(f"    {status_symbol} [{t['id']}] {t['name']}")
-                
+
         print("-" * 65)
         if pending == 0:
             print("🎉 ALL TASKS COMPLETED (100%)! Ready for final verification, cleanup, and CI push.")
@@ -476,7 +499,7 @@ def main():
 
     if check_mode and pending > 0:
         sys.exit(1)
-        
+
     sys.exit(0)
 
 if __name__ == "__main__":

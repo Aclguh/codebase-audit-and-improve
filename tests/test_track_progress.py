@@ -233,6 +233,28 @@ class TestTrackProgress(unittest.TestCase):
         self.assertEqual(tasks[1]["id"], "OPT-02")
         self.assertEqual(tasks[1]["name"], "Blocked by dependency XYZ")
 
+    def test_checklist_emoji_variation_selector_is_tracked(self):
+        # Emoji pickers usually emit U+FE0F (VS16) right after ✅/✔/☑. The
+        # checkbox must still match; otherwise the whole task row silently
+        # disappears from the totals.
+        content = (
+            "- [✅️] OPT-01: Checked with VS16\n"
+            "- [✔️] OPT-02: Heavy check with VS16\n"
+            "- [☑️] OPT-03: Ballot box with VS16\n"
+            "- [ ] OPT-04: Pending\n"
+        )
+        filepath = os.path.join(self.test_dir, "VS16.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 4)
+        for index in range(3):
+            self.assertTrue(tasks[index]["done"], tasks[index])
+        self.assertFalse(tasks[3]["done"])
+        self.assertEqual([t["id"] for t in tasks], ["OPT-01", "OPT-02", "OPT-03", "OPT-04"])
+
     def test_completion_status_header_aliases(self):
         # "Completion" and "完成情况" are common status headers. Without them a
         # finished row stays pending forever, and a two-column table is not
@@ -278,6 +300,50 @@ class TestTrackProgress(unittest.TestCase):
         for status in ("Done (100%)", "完成 (5/5)", "已完成"):
             with self.subTest(status=status):
                 self.assertTrue(track_progress.is_status_done(status))
+
+    def test_labeled_status_cells(self):
+        # A status cell may repeat its column label; the payload after the
+        # label decides completion, so partial progress never flips to done
+        # just because the label starts with a completion keyword.
+        for status in (
+            "Status: Done",
+            "State: Completed",
+            "Completion: 100%",
+            "Progress: 5/5",
+            "状态: 已完成",
+            "进度: 100%",
+            "完成情况：已完成",
+        ):
+            with self.subTest(status=status):
+                self.assertTrue(track_progress.is_status_done(status))
+        for status in (
+            "Status: In Progress",
+            "Progress: 3/5",
+            "Completion: 0/3",
+            "状态: 待处理",
+            "进度: 0%",
+            "完成情况: 80%",
+            "完成情况：80%",
+        ):
+            with self.subTest(status=status):
+                self.assertFalse(track_progress.is_status_done(status))
+        # A label with no payload is not a completion statement.
+        self.assertFalse(track_progress.is_status_done("Status:"))
+
+        content = (
+            "| 优先级 | 任务标识 | 任务名称 | 状态 |\n"
+            "| :---: | :---: | :--- | :---: |\n"
+            "| P0 | OPT-01 | Labelled done | Status: Done |\n"
+            "| P1 | OPT-02 | Labelled partial | 完成情况: 80% |\n"
+        )
+        filepath = os.path.join(self.test_dir, "LABELLED.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 2)
+        self.assertTrue(tasks[0]["done"])
+        self.assertFalse(tasks[1]["done"])
 
     def test_file_not_found(self):
         non_existent = os.path.join(self.test_dir, "missing.md")
@@ -512,6 +578,39 @@ class TestTrackProgress(unittest.TestCase):
         self.assertEqual(tasks[1]["priority"], "P2")
         self.assertEqual(tasks[1]["name"], "Enhance test coverage")
         self.assertFalse(tasks[1]["done"])
+
+    def test_split_table_row_preserves_non_pipe_escapes(self):
+        # Only "\|" is an escaped pipe; other backslash pairs stay literal,
+        # and a trailing backslash must not be dropped with the cell.
+        self.assertEqual(track_progress.split_table_row(r"| a\*b | c\d |"), ["a\\*b", "c\\d"])
+        self.assertEqual(track_progress.split_table_row("| trailing\\"), ["trailing\\"])
+
+    def test_clean_cell_peels_markers_exposed_by_link(self):
+        # Link unpacking can expose wrapping emphasis, which must be peeled too.
+        self.assertEqual(track_progress.clean_cell("[**label**](url)"), "label")
+        self.assertEqual(track_progress.clean_cell("[_label_](url)"), "label")
+
+    def test_whitespace_only_status_is_not_done(self):
+        self.assertFalse(track_progress.is_status_done("   "))
+
+    def test_is_status_done_accepts_yes_and_true(self):
+        for status in ("y", "Y", "yes", "true"):
+            with self.subTest(status=status):
+                self.assertTrue(track_progress.is_status_done(status))
+
+    def test_priority_only_checklist_item_uses_generated_id(self):
+        content = "- [x] [P0]\n"
+        filepath = os.path.join(self.test_dir, "PRIORITY_ONLY.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 1)
+        self.assertTrue(tasks[0]["done"])
+        self.assertEqual(tasks[0]["priority"], "P0")
+        self.assertEqual(tasks[0]["id"], "OPT-01")
+        self.assertEqual(tasks[0]["name"], "OPT-01")
 
     def test_clean_cell_preserves_identifier_underscores(self):
         self.assertEqual(track_progress.clean_cell("parse_package_json"), "parse_package_json")
