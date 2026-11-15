@@ -389,6 +389,12 @@ def check_git_status(cwd):
     try:
         p_check = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], cwd=cwd, capture_output=True, text=True, errors="replace", timeout=15)
         if p_check.returncode != 0:
+            # Outside a work tree Git reports "not a git repository", which is
+            # a normal answer. Any other failure (dubious ownership, corrupted
+            # config) must be surfaced instead of pretending this is not a repo.
+            detail = (p_check.stderr or p_check.stdout).strip()
+            if detail and "not a git repository" not in detail.lower():
+                result["git_error"] = detail
             return result
         result["is_git"] = True
 
@@ -677,7 +683,12 @@ def main():
             print(f"  ✗ Working tree is DIRTY ({git_info['dirty_files_count']} uncommitted file(s)!)")
             print("    Recommendation: Commit or stash uncommitted changes before starting.")
     else:
-        print("  ! Current directory is not a Git repository.")
+        if git_info.get("git_error"):
+            # Missing git or an unreadable repository is not the same as
+            # "this directory is not a repository"; surface the real cause.
+            print(f"  ! Git status unavailable: {git_info['git_error']}")
+        else:
+            print("  ! Current directory is not a Git repository.")
 
     # 3. .gitignore Protection Check
     print("\n[+] Checking .gitignore configuration:")
