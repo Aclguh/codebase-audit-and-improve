@@ -34,6 +34,7 @@ Conduct an exhaustive audit using [references/audit-dimensions.md](./references/
 6. **Testing & Quality Assurance**: Eliminate coverage blind spots in critical logic, add regression assertions, and ensure CI friendliness.
 
 *(Tip: In large codebases with >50 files, invoke `research` subagents to audit modules in parallel.)*
+*(Tool-call cadence: one tool call per assistant message — do not batch parallel `Bash`/`Read` calls; see principle 7 in [references/execution-loop.md](./references/execution-loop.md).)*
 
 ### Phase 3: Generate Structured `IMPROVEMENTS.md`
 Generate `IMPROVEMENTS.md` at project root using the standard format in [references/improvements-template.md](./references/improvements-template.md):
