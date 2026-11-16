@@ -109,14 +109,36 @@ def is_status_done(val):
         if completed_ratio < 1:
             return False
     # A bare ratio is a self-contained progress statement: "100%" and "5/5"
-    # are finished, while "99%", "3/5" and the degenerate "0/0" are not.
-    ratio_percent = re.match(r'^(\d+(?:\.\d+)?)\s*%\s*$', clean_v)
+    # are finished, while "99%", "3/5" and the degenerate "0/0" are not. The
+    # ratio may carry a trailing completion keyword ("100% complete",
+    # "100% 完成", "5/5 done"); the number still decides the outcome.
+    ratio_percent = re.match(
+        r'^(\d+(?:\.\d+)?)\s*%\s*'
+        r'(?:done|completed|complete|finished|pass|passed|success|implemented'
+        r'|已完成|完成|通过)?$',
+        clean_v,
+    )
     if ratio_percent:
         return float(ratio_percent.group(1)) >= 100
-    ratio_fraction = re.match(r'^(\d+)\s*/\s*(\d+)\s*$', clean_v)
+    ratio_fraction = re.match(
+        r'^(\d+)\s*/\s*(\d+)\s*'
+        r'(?:done|completed|complete|finished|pass|passed|success|implemented'
+        r'|已完成|完成|通过)?$',
+        clean_v,
+    )
     if ratio_fraction:
         denominator = int(ratio_fraction.group(2))
         return denominator > 0 and int(ratio_fraction.group(1)) >= denominator
+    # "<noun> rate N%" reports a measured ratio, so the number decides:
+    # "Pass rate 50%" is still in progress while "Success rate 100%" is done.
+    # Without this the keyword-prefix fallback below reads "pass"/"success" as
+    # a completion word and reports a half-finished suite as done.
+    rate = re.match(
+        r'^(?:pass|success|completion|coverage|test)\s*rate\s*[:：]?\s*(\d+(?:\.\d+)?)\s*%\s*$',
+        clean_v,
+    )
+    if rate:
+        return float(rate.group(1)) >= 100
     # Check if cleaned text starts with standard completion keywords (even if followed by commit hash, PR, or note)
     if re.match(r'^(?:done|completed|complete|pass|passed|finished|ok|resolved|fixed|closed|merged|success|implemented|yes|true)\b', clean_v):
         return True
@@ -373,13 +395,19 @@ def parse_improvements_file(filepath):
             if m_explicit:
                 candidate = m_explicit.group(1)
                 is_bracketed = bool(re.match(r'^[\[(][^\])]+[\])]', rest))
+                # Bracketed text is an identifier only when it looks like one:
+                # the prose labels "(Optional)" and "[Critical]" stay part of
+                # the task name, while "[OPT-05]" and "(fix-12)" become the ID.
+                is_bracketed_id = is_bracketed and (
+                    not re.search(r'[a-z]', candidate) or bool(re.search(r'\d', candidate))
+                )
                 # A generic `word-123` identifier must start with an uppercase
                 # segment. Lowercase tech terms such as `utf-8` or `sha-256`
                 # open many task names and are text, not identifiers.
                 has_separator = bool(re.search(r'[A-Z][A-Z0-9]*[-_]\d+|\d+[-_][A-Za-z]+', candidate))
                 is_issue_num = bool(re.match(r'^#\d+$', candidate))
                 is_standard_prefix = bool(re.match(r'^(?:OPT|TASK|ISSUE|TODO|FEAT|FIX|SEC|PERF|BUG|ARCH|CHORE|TEST)\d+$', candidate, re.IGNORECASE))
-                if is_bracketed or has_separator or is_issue_num or is_standard_prefix:
+                if is_bracketed_id or has_separator or is_issue_num or is_standard_prefix:
                     task_id = candidate.upper()
                     rest = rest[m_explicit.end():].strip()
             if not task_id:

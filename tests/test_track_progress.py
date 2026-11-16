@@ -89,6 +89,24 @@ class TestTrackProgress(unittest.TestCase):
         for val in ["99%", "99.9%", "0%", "0/0", "0/5", "3/5"]:
             self.assertFalse(track_progress.is_status_done(val), f"Failed for {val}")
 
+    def test_rate_status_uses_numeric_ratio(self):
+        # "Pass rate 50%" used to hit the keyword-prefix fallback and count as
+        # done; the percentage must decide.
+        for val in ["Pass rate 50%", "pass rate 99.9%", "Success rate 80%", "Coverage rate 0%"]:
+            self.assertFalse(track_progress.is_status_done(val), f"Failed for {val}")
+        for val in ["Pass rate 100%", "Success rate 100%", "Completion rate 100.0%"]:
+            self.assertTrue(track_progress.is_status_done(val), f"Failed for {val}")
+
+    def test_ratio_with_trailing_completion_keyword(self):
+        # Ratio-first completion states ("100% complete", "5/5 done") were
+        # missed because the ratio patterns required the number alone. The
+        # trailing word must not override the number, so a partial ratio stays
+        # pending.
+        for val in ["100% complete", "100% 完成", "100% done", "1/1 complete", "5/5 done"]:
+            self.assertTrue(track_progress.is_status_done(val), f"Failed for {val}")
+        for val in ["99% complete", "80% 完成", "3/5 done", "0/0 complete"]:
+            self.assertFalse(track_progress.is_status_done(val), f"Failed for {val}")
+
     def test_standard_table_parsing(self):
         content = """# Roadmap
 | 优先级 | 任务标识 | 任务名称 | 核心收益 | 涉及文件 | 状态 |
@@ -208,6 +226,31 @@ class TestTrackProgress(unittest.TestCase):
         self.assertEqual(tasks[6]["id"], "OPT-06")
         self.assertTrue(tasks[7]["done"])
         self.assertEqual(tasks[7]["priority"], "P0")
+
+    def test_checklist_bracketed_labels_are_not_task_ids(self):
+        # "(Optional)" / "[Critical]" are prose labels, not identifiers; the
+        # task name must keep them instead of being reduced to "Add docs".
+        content = (
+            "- [ ] (Optional) Add docs\n"
+            "- [ ] [Critical] Fix login\n"
+            "- [ ] (fix-12) Repair cache\n"
+            "- [ ] [OPT-05] Real id\n"
+        )
+        filepath = os.path.join(self.test_dir, "LABELS.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 4)
+        self.assertEqual(tasks[0]["name"], "(Optional) Add docs")
+        self.assertNotEqual(tasks[0]["id"], "OPTIONAL")
+        self.assertEqual(tasks[1]["name"], "[Critical] Fix login")
+        self.assertNotEqual(tasks[1]["id"], "CRITICAL")
+        self.assertEqual(tasks[2]["id"], "FIX-12")
+        self.assertEqual(tasks[2]["name"], "Repair cache")
+        self.assertEqual(tasks[3]["id"], "OPT-05")
+        self.assertEqual(tasks[3]["name"], "Real id")
 
     def test_blocked_and_in_progress_checklists_remain_tracked(self):
         # execution-loop.md tells agents to annotate blockers with

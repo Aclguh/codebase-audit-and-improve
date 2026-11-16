@@ -261,6 +261,20 @@ class TestCheckHealth(unittest.TestCase):
         self.assertTrue(any("PHP" in n for n in stack_names))
         self.assertTrue(any("Ruby" in n for n in stack_names))
 
+    def test_dart_coverage_command_requires_output_directory(self):
+        # package:test's --coverage option takes a directory argument; without
+        # one the generated baseline command exits with a usage error.
+        Path(os.path.join(self.test_dir, "pubspec.yaml")).touch()
+
+        def dart_stack():
+            return [s for s in check_health.detect_stack(self.test_dir) if "Flutter / Dart" in s["name"]][0]
+
+        with patch("shutil.which", return_value=None):
+            self.assertEqual(dart_stack()["coverage_cmd"], "dart test --coverage=coverage")
+
+        with patch("shutil.which", side_effect=lambda name: "/usr/bin/flutter" if name == "flutter" else None):
+            self.assertEqual(dart_stack()["coverage_cmd"], "flutter test --coverage")
+
     def test_detect_dotnet_and_gradle_stacks(self):
         # .NET csproj
         Path(os.path.join(self.test_dir, "App.csproj")).touch()
@@ -322,6 +336,29 @@ class TestCheckHealth(unittest.TestCase):
         with patch.object(sys, "platform", "linux"):
             self.assertEqual(maven_stack()["lint_cmd"], "./mvnw checkstyle:check")
 
+    def test_gradle_wrapper_command_per_platform(self):
+        Path(os.path.join(self.test_dir, "build.gradle")).touch()
+        Path(os.path.join(self.test_dir, "gradlew")).touch()
+        Path(os.path.join(self.test_dir, "gradlew.bat")).touch()
+
+        def gradle_stack():
+            return [s for s in check_health.detect_stack(self.test_dir) if "Gradle" in s["name"]][0]
+
+        with patch.object(sys, "platform", "win32"):
+            self.assertEqual(gradle_stack()["lint_cmd"], "gradlew.bat check")
+
+        # A POSIX-only wrapper is not executable from cmd.exe; use the CLI.
+        os.remove(os.path.join(self.test_dir, "gradlew.bat"))
+        with patch.object(sys, "platform", "win32"):
+            self.assertEqual(gradle_stack()["lint_cmd"], "gradle check")
+
+        with patch.object(sys, "platform", "linux"):
+            self.assertEqual(gradle_stack()["lint_cmd"], "./gradlew check")
+
+        os.remove(os.path.join(self.test_dir, "gradlew"))
+        with patch.object(sys, "platform", "linux"):
+            self.assertEqual(gradle_stack()["lint_cmd"], "gradle check")
+
     def test_check_gitignore(self):
         # Missing
         is_ignored, msg, _ = check_health.check_gitignore(self.test_dir)
@@ -352,6 +389,17 @@ class TestCheckHealth(unittest.TestCase):
         is_ignored, msg, _ = check_health.check_gitignore(self.test_dir)
         self.assertTrue(is_ignored)
         self.assertIn("Found matching ignore pattern", msg)
+
+    def test_check_gitignore_recursive_pattern_matches_root(self):
+        # Git's "**/IMPROVEMENTS.md" also covers the repository root; plain
+        # fnmatch would require a directory in between and report the file as
+        # unprotected.
+        gitignore = os.path.join(self.test_dir, ".gitignore")
+        with open(gitignore, "w", encoding="utf-8") as f:
+            f.write("**/IMPROVEMENTS.md\n")
+        with patch.object(check_health, "git_reports_ignored", return_value=None):
+            is_ignored, msg, _ = check_health.check_gitignore(self.test_dir)
+        self.assertTrue(is_ignored, msg)
 
     def test_check_gitignore_fallback_case_semantics_follow_platform(self):
         gitignore = os.path.join(self.test_dir, ".gitignore")
@@ -601,6 +649,19 @@ class TestCheckHealth(unittest.TestCase):
         self.assertEqual(
             check_health.sanitize_remote_url("git@github.com:org/repo.git"),
             "git@github.com:org/repo.git"
+        )
+        # Non-HTTP schemes carry credentials too; only the userinfo is masked.
+        self.assertEqual(
+            check_health.sanitize_remote_url("ssh://deploy:s3cret@git.example.com/org/repo.git"),
+            "ssh://***@git.example.com/org/repo.git"
+        )
+        self.assertEqual(
+            check_health.sanitize_remote_url("git+ssh://token123@git.example.com/org/repo.git"),
+            "git+ssh://***@git.example.com/org/repo.git"
+        )
+        self.assertEqual(
+            check_health.sanitize_remote_url("file:///srv/git/repo.git"),
+            "file:///srv/git/repo.git"
         )
 
     def test_check_git_status_sanitizes_remote_credentials(self):
