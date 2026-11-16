@@ -109,11 +109,23 @@ def is_status_done(val):
         if completed_ratio < 1:
             return False
     # A bare ratio is a self-contained progress statement: "100%" and "5/5"
-    # are finished, while "99%", "3/5" and the degenerate "0/0" are not.
-    ratio_percent = re.match(r'^(\d+(?:\.\d+)?)\s*%\s*$', clean_v)
+    # are finished, while "99%", "3/5" and the degenerate "0/0" are not. The
+    # ratio may carry a trailing completion keyword ("100% complete",
+    # "100% 完成", "5/5 done"); the number still decides the outcome.
+    ratio_percent = re.match(
+        r'^(\d+(?:\.\d+)?)\s*%\s*'
+        r'(?:done|completed|complete|finished|pass|passed|success|implemented'
+        r'|已完成|完成|通过)?$',
+        clean_v,
+    )
     if ratio_percent:
         return float(ratio_percent.group(1)) >= 100
-    ratio_fraction = re.match(r'^(\d+)\s*/\s*(\d+)\s*$', clean_v)
+    ratio_fraction = re.match(
+        r'^(\d+)\s*/\s*(\d+)\s*'
+        r'(?:done|completed|complete|finished|pass|passed|success|implemented'
+        r'|已完成|完成|通过)?$',
+        clean_v,
+    )
     if ratio_fraction:
         denominator = int(ratio_fraction.group(2))
         return denominator > 0 and int(ratio_fraction.group(1)) >= denominator

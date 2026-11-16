@@ -89,6 +89,16 @@ class TestTrackProgress(unittest.TestCase):
         for val in ["99%", "99.9%", "0%", "0/0", "0/5", "3/5"]:
             self.assertFalse(track_progress.is_status_done(val), f"Failed for {val}")
 
+    def test_ratio_with_trailing_completion_keyword(self):
+        # Ratio-first completion states ("100% complete", "5/5 done") were
+        # missed because the ratio patterns required the number alone. The
+        # trailing word must not override the number, so a partial ratio stays
+        # pending.
+        for val in ["100% complete", "100% 完成", "100% done", "1/1 complete", "5/5 done"]:
+            self.assertTrue(track_progress.is_status_done(val), f"Failed for {val}")
+        for val in ["99% complete", "80% 完成", "3/5 done", "0/0 complete"]:
+            self.assertFalse(track_progress.is_status_done(val), f"Failed for {val}")
+
     def test_standard_table_parsing(self):
         content = """# Roadmap
 | 优先级 | 任务标识 | 任务名称 | 核心收益 | 涉及文件 | 状态 |
