@@ -15,8 +15,10 @@ import glob
 import fnmatch
 from pathlib import Path
 
-# Precompiled credential sanitization pattern for git remote URLs
-REMOTE_URL_CREDENTIAL_RE = re.compile(r'^(https?://)(?:[^:@/\s]+)(?::(?:[^@/\s]+))?@')
+# Credentials can hide behind any scheme (https://, ssh://, git+ssh://), so the
+# pattern accepts any scheme://user[:password]@ prefix. SCP-style addresses
+# such as "git@host:path" carry no scheme and are left untouched.
+REMOTE_URL_CREDENTIAL_RE = re.compile(r'^([A-Za-z][A-Za-z0-9+.\-]*://)(?:[^:@/\s]+)(?::(?:[^@/\s]+))?@')
 
 # A Cargo workspace root declares `[workspace]` or one of its sub-tables such
 # as `[workspace.package]` / `[workspace.dependencies]`.

@@ -602,6 +602,19 @@ class TestCheckHealth(unittest.TestCase):
             check_health.sanitize_remote_url("git@github.com:org/repo.git"),
             "git@github.com:org/repo.git"
         )
+        # Non-HTTP schemes carry credentials too; only the userinfo is masked.
+        self.assertEqual(
+            check_health.sanitize_remote_url("ssh://deploy:s3cret@git.example.com/org/repo.git"),
+            "ssh://***@git.example.com/org/repo.git"
+        )
+        self.assertEqual(
+            check_health.sanitize_remote_url("git+ssh://token123@git.example.com/org/repo.git"),
+            "git+ssh://***@git.example.com/org/repo.git"
+        )
+        self.assertEqual(
+            check_health.sanitize_remote_url("file:///srv/git/repo.git"),
+            "file:///srv/git/repo.git"
+        )
 
     def test_check_git_status_sanitizes_remote_credentials(self):
         def fake_run(cmd, *args, **kwargs):
