@@ -305,10 +305,14 @@ def detect_stack(cwd):
     gradle_manifests = ["build.gradle.kts", "build.gradle", "settings.gradle.kts", "settings.gradle"]
     matched_gradle = [f for f in gradle_manifests if os.path.exists(os.path.join(cwd, f))]
     if matched_gradle:
-        is_win = sys.platform.startswith("win")
-        gradle_cmd = "gradlew.bat" if is_win and os.path.exists(os.path.join(cwd, "gradlew.bat")) else (
-            "./gradlew" if os.path.exists(os.path.join(cwd, "gradlew")) else "gradle"
-        )
+        has_gradlew = os.path.exists(os.path.join(cwd, "gradlew"))
+        has_gradlew_bat = os.path.exists(os.path.join(cwd, "gradlew.bat"))
+        if sys.platform.startswith("win"):
+            # cmd.exe cannot run the POSIX ./gradlew shell script; prefer the
+            # wrapper's .bat entry point and fall back to the CLI.
+            gradle_cmd = "gradlew.bat" if has_gradlew_bat else "gradle"
+        else:
+            gradle_cmd = "./gradlew" if has_gradlew else "gradle"
         stacks.append({
             "name": "Java / Kotlin (Gradle)",
             "manifest": matched_gradle[0],
@@ -517,6 +521,10 @@ def check_gitignore(cwd):
             if not line:
                 continue
         line_clean = line.lstrip("/")
+        # Git reads a leading "**/" as "at any depth", which also covers the
+        # repository root; plain fnmatch would demand an extra path segment.
+        if line_clean.startswith("**/"):
+            line_clean = line_clean[3:]
         # fnmatch.fnmatch normalizes case through os.path.normcase, so the
         # fallback follows Git's platform semantics: case-insensitive on
         # Windows and case-sensitive on POSIX filesystems.
