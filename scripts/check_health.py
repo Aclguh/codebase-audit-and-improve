@@ -169,7 +169,9 @@ def detect_stack(cwd):
             "manifest": "pubspec.yaml",
             "lint_cmd": "flutter analyze" if has_flutter else "dart analyze",
             "test_cmd": "flutter test" if has_flutter else "dart test",
-            "coverage_cmd": "flutter test --coverage" if has_flutter else "dart test --coverage"
+            # package:test requires a directory for --coverage; without one the
+            # command aborts before collecting anything.
+            "coverage_cmd": "flutter test --coverage" if has_flutter else "dart test --coverage=coverage"
         })
 
     # 2. Node.js / TypeScript / JavaScript

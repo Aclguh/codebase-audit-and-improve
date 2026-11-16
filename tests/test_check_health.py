@@ -261,6 +261,20 @@ class TestCheckHealth(unittest.TestCase):
         self.assertTrue(any("PHP" in n for n in stack_names))
         self.assertTrue(any("Ruby" in n for n in stack_names))
 
+    def test_dart_coverage_command_requires_output_directory(self):
+        # package:test's --coverage option takes a directory argument; without
+        # one the generated baseline command exits with a usage error.
+        Path(os.path.join(self.test_dir, "pubspec.yaml")).touch()
+
+        def dart_stack():
+            return [s for s in check_health.detect_stack(self.test_dir) if "Flutter / Dart" in s["name"]][0]
+
+        with patch("shutil.which", return_value=None):
+            self.assertEqual(dart_stack()["coverage_cmd"], "dart test --coverage=coverage")
+
+        with patch("shutil.which", side_effect=lambda name: "/usr/bin/flutter" if name == "flutter" else None):
+            self.assertEqual(dart_stack()["coverage_cmd"], "flutter test --coverage")
+
     def test_detect_dotnet_and_gradle_stacks(self):
         # .NET csproj
         Path(os.path.join(self.test_dir, "App.csproj")).touch()
