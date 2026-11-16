@@ -89,6 +89,14 @@ class TestTrackProgress(unittest.TestCase):
         for val in ["99%", "99.9%", "0%", "0/0", "0/5", "3/5"]:
             self.assertFalse(track_progress.is_status_done(val), f"Failed for {val}")
 
+    def test_rate_status_uses_numeric_ratio(self):
+        # "Pass rate 50%" used to hit the keyword-prefix fallback and count as
+        # done; the percentage must decide.
+        for val in ["Pass rate 50%", "pass rate 99.9%", "Success rate 80%", "Coverage rate 0%"]:
+            self.assertFalse(track_progress.is_status_done(val), f"Failed for {val}")
+        for val in ["Pass rate 100%", "Success rate 100%", "Completion rate 100.0%"]:
+            self.assertTrue(track_progress.is_status_done(val), f"Failed for {val}")
+
     def test_ratio_with_trailing_completion_keyword(self):
         # Ratio-first completion states ("100% complete", "5/5 done") were
         # missed because the ratio patterns required the number alone. The

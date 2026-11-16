@@ -129,6 +129,16 @@ def is_status_done(val):
     if ratio_fraction:
         denominator = int(ratio_fraction.group(2))
         return denominator > 0 and int(ratio_fraction.group(1)) >= denominator
+    # "<noun> rate N%" reports a measured ratio, so the number decides:
+    # "Pass rate 50%" is still in progress while "Success rate 100%" is done.
+    # Without this the keyword-prefix fallback below reads "pass"/"success" as
+    # a completion word and reports a half-finished suite as done.
+    rate = re.match(
+        r'^(?:pass|success|completion|coverage|test)\s*rate\s*[:：]?\s*(\d+(?:\.\d+)?)\s*%\s*$',
+        clean_v,
+    )
+    if rate:
+        return float(rate.group(1)) >= 100
     # Check if cleaned text starts with standard completion keywords (even if followed by commit hash, PR, or note)
     if re.match(r'^(?:done|completed|complete|pass|passed|finished|ok|resolved|fixed|closed|merged|success|implemented|yes|true)\b', clean_v):
         return True
