@@ -385,13 +385,19 @@ def parse_improvements_file(filepath):
             if m_explicit:
                 candidate = m_explicit.group(1)
                 is_bracketed = bool(re.match(r'^[\[(][^\])]+[\])]', rest))
+                # Bracketed text is an identifier only when it looks like one:
+                # the prose labels "(Optional)" and "[Critical]" stay part of
+                # the task name, while "[OPT-05]" and "(fix-12)" become the ID.
+                is_bracketed_id = is_bracketed and (
+                    not re.search(r'[a-z]', candidate) or bool(re.search(r'\d', candidate))
+                )
                 # A generic `word-123` identifier must start with an uppercase
                 # segment. Lowercase tech terms such as `utf-8` or `sha-256`
                 # open many task names and are text, not identifiers.
                 has_separator = bool(re.search(r'[A-Z][A-Z0-9]*[-_]\d+|\d+[-_][A-Za-z]+', candidate))
                 is_issue_num = bool(re.match(r'^#\d+$', candidate))
                 is_standard_prefix = bool(re.match(r'^(?:OPT|TASK|ISSUE|TODO|FEAT|FIX|SEC|PERF|BUG|ARCH|CHORE|TEST)\d+$', candidate, re.IGNORECASE))
-                if is_bracketed or has_separator or is_issue_num or is_standard_prefix:
+                if is_bracketed_id or has_separator or is_issue_num or is_standard_prefix:
                     task_id = candidate.upper()
                     rest = rest[m_explicit.end():].strip()
             if not task_id:

@@ -219,6 +219,31 @@ class TestTrackProgress(unittest.TestCase):
         self.assertTrue(tasks[7]["done"])
         self.assertEqual(tasks[7]["priority"], "P0")
 
+    def test_checklist_bracketed_labels_are_not_task_ids(self):
+        # "(Optional)" / "[Critical]" are prose labels, not identifiers; the
+        # task name must keep them instead of being reduced to "Add docs".
+        content = (
+            "- [ ] (Optional) Add docs\n"
+            "- [ ] [Critical] Fix login\n"
+            "- [ ] (fix-12) Repair cache\n"
+            "- [ ] [OPT-05] Real id\n"
+        )
+        filepath = os.path.join(self.test_dir, "LABELS.md")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        tasks, err = track_progress.parse_improvements_file(filepath)
+        self.assertIsNone(err)
+        self.assertEqual(len(tasks), 4)
+        self.assertEqual(tasks[0]["name"], "(Optional) Add docs")
+        self.assertNotEqual(tasks[0]["id"], "OPTIONAL")
+        self.assertEqual(tasks[1]["name"], "[Critical] Fix login")
+        self.assertNotEqual(tasks[1]["id"], "CRITICAL")
+        self.assertEqual(tasks[2]["id"], "FIX-12")
+        self.assertEqual(tasks[2]["name"], "Repair cache")
+        self.assertEqual(tasks[3]["id"], "OPT-05")
+        self.assertEqual(tasks[3]["name"], "Real id")
+
     def test_blocked_and_in_progress_checklists_remain_tracked(self):
         # execution-loop.md tells agents to annotate blockers with
         # "[!] Blocked by ..."; such tasks must stay in the totals as pending
