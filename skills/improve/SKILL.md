@@ -133,6 +133,7 @@ Conduct a thorough inspection across the six core dimensions. See [references/au
    - Verify edge-case tests for parsers, serializers, and protocol adapters.
 
 *(Tip: In large repositories, invoke `research` subagents to audit different modules in parallel, preserving the primary conversation context.)*
+*(Tool-call cadence: one tool call per assistant message — do not batch parallel `Bash`/`Read` calls; see principle 7 in [references/execution-loop.md](./references/execution-loop.md).)*
 
 ---
 

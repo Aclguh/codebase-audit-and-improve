@@ -20,6 +20,16 @@ This reference specifies the rigorous protocol agents and developers must follow
    - **Global Outer Loop (Phase 5)**: Execute the full project test suite across all modules before final push and PR creation.
 5. **Preserve Surrounding Integrity**: Maintain all existing comments, docstrings, formatting standards, and unrelated methods in edited files.
 6. **Living Checklist**: `IMPROVEMENTS.md` must be dynamically updated in synchronization with each completed task.
+7. **Serial Tool Invocation (逐次工具调用)**: Issue **one tool call per assistant message**. Never batch several
+   `Bash` / `Read` / `Edit` calls into a single turn.
+   - *Rationale*: a `tool_use` block is valid only when its `tool_result` lands in the message immediately
+     after it. When one assistant turn fans out several calls, the results are recorded as separate user
+     messages; a long session that rebuilds its request history from a pruned cache can then send a
+     `tool_use` whose result was dropped. Anthropic-compatible backends reject that request with
+     `400 invalid_request` / `tool_history_mismatch` ("tool use concurrency issues"), and retrying only
+     re-sends the same broken history — the run cannot be rescued by "continue".
+   - Delegating to parallel `research` subagents is still allowed: the rule covers multiple tool calls
+     inside one assistant message, not handing work to agents.
 
 ---
 
